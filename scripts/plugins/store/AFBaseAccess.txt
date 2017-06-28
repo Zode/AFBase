@@ -1,0 +1,19 @@
+#AFBase access file, everyone has flag Z by default.
+#Flags
+#A - Immunity
+#B - Set access, stop/start expansion
+#C - Rcon
+#D - Ban/unban
+#E - Kick, changelevel, "highrisk"
+#F - Ent_ commands
+#G - Player_ commands, slap, slay, trackdecals
+#H - Fun_commands, say, vote
+#IJKLMNOPQRSTUVWXY - Custom access flags 1 to 17
+
+#Format
+#STEAMID ACCESSFLAGS
+
+#Examples
+#STEAM_0:1:129159025 ABCDEFGHIJKLMNOPQRSTUVWYX
+#STEAM_0:1:129159025 CDEFGHI
+#STEAM_0:1:129159025 Y
