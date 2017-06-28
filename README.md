@@ -20,6 +20,9 @@ This plugin allows server owners to easily setup access flags for admins & insta
 7. (optional): if you didint give yourself all the flags in step 5, run this command: .afb_access @me "+cdefghijklmnopqrstuvwyx"
 8. done!
 
+## for scripters:
+"documentation" for extension scripting available [here](https://zode.github.io/AFBase/)
+
 ## Other stuff:
 use ".afb_help" to view all available commands!
 
