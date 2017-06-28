@@ -1,0 +1,26 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<link rel="stylesheet" type="text/css" href="doc.css"></link>
+<title>Supporting playertargeters</title>
+</head>
+<body>
+<h1>Supporting playertargeters</h1>
+<div>
+<p>Supporting player targeters is easy:</p>
+<img src="players.png" />
+<p>in the function testsecond:</p>
+<p>first we define empty array of CBasePlayers to hold targets</p>
+<p>then we do a if with the gettargetplayers command</p>
+<p>after that we define a empty CBasePlayer and start looping thru the array, even if your command only allows targeting one player its good practice to loop thru them or use pTargets[0]</p>
+<p>we assign the empty CBasePlayer one player from the array and now you can use the CBasePlayer as normal</p>
+<br><p>GetTargetPlayers explained:</p>
+<br><p>first parameter is usually AFArgs.User, this is passed to the function so that in case it errors, the user will see the message</p>
+<br><p>second parameter is your print target, usually you would use HUD_PRINTCONSOLE or HUD_PRINTTALK here</p>
+<br><p>third parameter is your "search" string, usually this is one of the arguments in the command</p>
+<br><p>fourth parameter is the flags, leave it at 0 if you dont want any filtering or use one of the PlayerTargeters enums, you can assign multiple filtering enums by using the "|" character<p>
+<p>examples: 0, TARGETS_NOALL, TARGETS_NOAIM|TARGETS_NORANDOM</p>
+<br><p>fifth parameter is the array the function spews targets to</p>
+</div>
+</body>
+</html>

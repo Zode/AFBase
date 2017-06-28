@@ -1,0 +1,22 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<link rel="stylesheet" type="text/css" href="doc.css"></link>
+<title>Sending and receiving messages to/from other extensions</title>
+</head>
+<body>
+<h1>Sending and receiving messages to/from other extensions</h1>
+<div>
+<p>Sending and receiving messages is easy:</p>
+<img src="msg1.png" />
+<p>And then in another plugin:</p>
+<img src="msg2.png" />
+<p>Explained:</p>
+<p>SendMessage: First parameter is the target extension (usually this is the SID aka ShortName defined in ExpansionInit), in this case we are using "*" because that makes it broadcast to all plugins</p>
+<br><p>second parameter is the message identifier</p>
+<br><p>third parameter is a dictionary, this can hold anything you want</p>
+<br><p>ReceiveMessageEvent: first we check the identifier so we know what to expect</p>
+<br><p>Then we just read the dictionary as usual</p>
+</div>
+</body>
+</html>

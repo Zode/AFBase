@@ -1,0 +1,37 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<link rel="stylesheet" type="text/css" href="doc.css"></link>
+<title>Registering</title>
+</head>
+<body>
+<h1>Registering commands</h1>
+<div>
+<p>Registering commands is quick and easy, heres an image of registering console and chat command that both use the same function:</p>
+<img src="cmd.png" />
+<p>First we call RegisterCommand and define the command in first parameter, if you include "say " in front it will become a chat command</p>
+<br><p>second parameter defines your arguments</p>
+<p>you can use any combination you want, "ss" for two strings, "vf" for vector and float..</p>
+<p>heres what you can use in the second array:</p>
+<p> s -> string </p>
+<p> b -> bool (reads 0 and 1 or false and true) </p>
+<p> i -> int </p>
+<p> f -> float </p>
+<p> v -> vector (basically same as 3 floats) </p>
+<p> ! -> optional marker </p>
+<p>Optional marker allows you to define arguments without making them required</p>
+<p>use "" for no arguments, "!s" for optional string, "s!s" for one string and one optional string</p>
+<p>remember to sanity check the arguments (with GetCount()) if you do use optional marker!</p>
+<br><p>third parameter is the description, you can write whatever you want to write here but its good to use a standard format</p>
+<p>AF2/AFB uses format: (argument) for required, <argument> for optional</p>
+<p>Also you have to manually include the "- " infront in description</p>
+<p>for example: "- Test command!", "(string) - Test command!" or "<float> - Test command!"</p>
+<br><p>fourth parameter is the access level required, see ACCESS ENUM for more</p>
+<p>you can also "chain" accessflags by using "|", for example ACCESS_E|ACCESS_F requires both flags E and F</p>
+<br><p>fifth parameter is the callback function, remember to include namespace in front of it</p>
+<br><p>sixth parameter is optional, it defines if the command can be executed without precaching, setting this to true will block the command execution if no precache was done</p>
+<p>however if you wish to execute the command but it uses precached stuff, you can always query AFBase if it has executed precaching routines</p>
+<br><p>seventh parameter is optional, it defines if chat should be "supressed" aka hidden, setting this to true will hide user chat and effectively hide the command from chat</p>
+</div>
+</body>
+</html>

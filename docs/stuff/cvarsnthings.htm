@@ -1,0 +1,16 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<link rel="stylesheet" type="text/css" href="doc.css"></link>
+<title>Setting up cvars/hooks/schedulers</title>
+</head>
+<body>
+<h1>Setting up cvars/hooks/schedulers</h1>
+<div>
+<p>Setting up cvars/hooks/schedulers are done as your usual sven plugin would</p>
+<p>just remember to use the namespace name in front (example: @MyExtension::PlayerKilled or @MyExtension::CVAR_TimeOut or @MyExtension::MyThink)</p>
+<p>You will have to design these around the fact that extensions can be stopped or started at any point, so remember to clear out your player dictionary, player arrays and whatnot</p>
+<p>You can check if the plugin is running my using (class).Running or using Start/StopEvent in class</p>
+</div>
+</body>
+</html>

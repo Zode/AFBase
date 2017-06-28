@@ -1,0 +1,89 @@
+
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<link rel="stylesheet" type="text/css" href="doc.css"></link>
+<title>class AFBaseClass</title>
+</head>
+<body>
+<h1>class AFBaseClass</h1>
+<p>Exists in global namespace.</p>
+<div><h2>Methods</h2>
+<table><tr><th>Declaration</th>
+<th>Description</th>
+</tr>
+<tr><td>void ExpansionInfo()</td>
+<td>Called when the extension info is requested by AFBase, this is where you define the properties</td>
+</tr>
+<tr><td>void ExpansionInit()</td>
+<td>Called when plugin inits, same as PluginInit()</td>
+</tr>
+<tr><td>void MapInit()</td>
+<td>Called when map inits, same as MapInit()</td>
+</tr>
+<tr><td>void RegisterCommand(string sCommand, string sReqArgs, string sDescription, int iAccess, callback)</td>
+<td>Register command, see tutorial</td>
+</tr>
+<tr><td>void RegisterCommand(string sCommand, string sReqArgs, string sDescription, int iAccess, callback, bool bRequiresPrecache)</td>
+<td>Register command, see tutorial</td>
+</tr>
+<tr><td>void RegisterCommand(string sCommand, string sReqArgs, string sDescription, int iAccess, callback, bool bRequiresPrecache, bool bHideChat)</td>
+<td>Register command, see tutorial</td>
+</tr>
+<tr><td>void RegisterExpansion(AFBaseClass)</td>
+<td>Registers expansion, see tutorial</td>
+</tr>
+<tr><td>void ClientConnectEvent(CBasePlayer@ pUser)</td>
+<td>Called when player connects</td>
+</tr>
+<tr><td>void ClientDisconnectEvent(CBasePlayer@ pUser)</td>
+<td>Called when player disconnects</td>
+</tr>
+<tr><td>void NameChangeEvent(AFBase::AFBaseUser@ afbUser)</td>
+<td>Called when player changes his name, sNick and sOldNick has already been updated</td>
+</tr>
+<tr><td>void StopEvent()</td>
+<td>Called when extension is stopped</td>
+</tr>
+<tr><td>void StartEvent()</td>
+<td>Called when extension is started</td>
+</tr>
+<tr><td>void SendMessage(string sReceiverShortName, string sIdentifier, dictionary dData)</td>
+<td>Send message to another extension, use "*" as sReceiverShortName for broadcast</td>
+</tr>
+<tr><td>void ReceiveMessageEvent(string sSenderShortname, string sIdentifier, dictionary dData)</td>
+<td>Message receive event</td>
+</tr>
+<tr><td>void Log(string sInput)</td>
+<td>Logs to server, textformat: [shortname] + sInput + \n</td>
+</tr>
+<tr><td>void Tell(string sInput, CBasePlayer@ pUser, HUD targetHud)</td>
+<td>prints to client, textformat: [shortname] + sInput + \n</td>
+</tr>
+<tr><td>void TellLong(string sInput, CBasePlayer@ pUser, HUD targetHud)</td>
+<td>prints to client. This one works around clientprint max character limit, textformat: [shortname] + sInput + \n</td>
+</tr>
+<tr><td>void TellAll(string sInput, HUD targetHud)</td>
+<td>prints to all clients. textformat: [shortname] + sInput + \n</td>
+</tr>
+</table>
+<div><h2>Properties</h2>
+<table><tr><th>Declaration</th>
+<th>Description</th>
+</tr>
+<tr><td>bool Running</td>
+<td>Returns true if this expansion is running</td>
+</tr>
+<tr><td>string AuthorName</td>
+<td>Get/set expansion author name</td>
+</tr>
+<tr><td>string ExpansionName</td>
+<td>Get/set expansion name</td>
+</tr>
+<tr><td>string ShortName</td>
+<td>Get/set expansion short name</td>
+</tr>
+</table>
+</div>
+</body>
+</html>

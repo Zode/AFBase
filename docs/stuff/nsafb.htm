@@ -1,0 +1,57 @@
+
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<link rel="stylesheet" type="text/css" href="doc.css"></link>
+<title>AFBase::</title>
+</head>
+<body>
+<h1>Namespace AFBase::</h1>
+<p>Usage: AFBase::(method), example: AFBase::IsSafe()</p>
+<div><h2>Methods</h2>
+<table><tr><th>Declaration</th>
+<th>Description</th>
+</tr>
+<tr><td>bool IsSafe()</td>
+<td>Returns true if precache was done</td>
+</tr>
+<tr><td>string FormatSafe(string sInput)</td>
+<td>Returns formated string, basically replaces any character that isnt (A-Z, a-z, 0-9, :, - or _) with "-"</td>
+</tr>
+<tr><td>string GetFixedSteamID(CBasePlayer@ pPlayer)</td>
+<td>Returns user's steamid, if in LAN will return nickname</td>
+</tr>
+<tr><td>AFBaseUser@ GetUser(CBasePlayer@ pPlayer)</td>
+<td>Returns AFBaseUser class for user</td>
+</tr>
+<tr><td>AFBaseUser@ GetUser(int iEntIndex)</td>
+<td>Returns AFBaseUser class for user</td>
+</tr>
+<tr><td>array<string> ExplodeString(string sInput, string sFilter)</td>
+<td>"explode" string into array, character in sFilter will be ignored</td>
+</tr>
+<tr><td>string ImplodeString(array<string> asInput)</td>
+<td>"implode" array of strings into one string</td>
+</tr>
+<tr><td>bool CheckAccess(CBasePlayer@ pPlayer, int iAccess)</td>
+<td>Returns true if player has defined access (see ACCESS_ENUM)</td>
+</tr>
+<tr><td>bool CheckAccess(int iEntIndex, int iAccess)</td>
+<td>Returns true if player has defined access (see ACCESS_ENUM)</td>
+</tr>
+<tr><td>bool GetTargetPlayers(CBasePlayer@ &in pCommandUser, HUD &in hudtarget, string &in sWantedTarget, int &in iFlags, array<CBasePlayer@> &out pTargets)</td>
+<td>Returns array of targets, see tutorial</td>
+</tr>
+<tr><td>uint cclamp(uint in, uint min, uint max)</td>
+<td>clamp to value</td>
+</tr>
+<tr><td>int cclamp(int in, int min, int max)</td>
+<td>clamp to value</td>
+</tr>
+<tr><td>float cclamp(float in, float min, float max)</td>
+<td>clamp to value</td>
+</tr>
+</table>
+</div>
+</body>
+</html>

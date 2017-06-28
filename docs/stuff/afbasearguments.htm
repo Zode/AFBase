@@ -1,0 +1,56 @@
+
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<link rel="stylesheet" type="text/css" href="doc.css"></link>
+<title>class AFBaseArguments</title>
+</head>
+<body>
+<h1>class AFBaseArguments</h1>
+<p>Exists in global namespace.</p>
+<div><h2>Methods</h2>
+<table><tr><th>Declaration</th>
+<th>Description</th>
+</tr>
+<tr><td>int GetCount()</td>
+<td>Returns amount of arguments, returns 0 if no arguments were given</td>
+</tr>
+<tr><td>bool GetBool(int index)</td>
+<td>Returns bool from index, first argument is index 0</td>
+</tr>
+<tr><td>int GetInt(int index)</td>
+<td>Returns int from index, first argument is index 0</td>
+</tr>
+<tr><td>float GetFloat(int index)</td>
+<td>Returns float from index, first argument is index 0</td>
+</tr>
+<tr><td>string GetString(int index)</td>
+<td>Returns string from index, first argument is index 0</td>
+</tr>
+<tr><td>string GetVector(int index)</td>
+<td>Returns vector from index, first argument is index 0</td>
+</tr>
+</table>
+<div><h2>Properties</h2>
+<table><tr><th>Declaration</th>
+<th>Description</th>
+</tr>
+<tr><td>bool IsChat</td>
+<td>Returns true if command was executed from chat</td>
+</tr>
+<tr><td>array<string> RawArgs</td>
+<td>Returns raw Arguments, it is unlikely you will ever need this</td>
+</tr>
+<tr><td>CBasePlayer@ User</td>
+<td>Returns player executing the command</td>
+</tr>
+<tr><td>ClientSayType SayType</td>
+<td>Returns SayType when executed from chat</td>
+</tr>
+<tr><td>dictionary Args</td>
+<td>Returns parsed arguments in dictionary, unlike you will need this</td>
+</tr>
+</table>
+</div>
+</body>
+</html>
