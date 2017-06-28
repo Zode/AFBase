@@ -1,6 +1,6 @@
 # AFBase
 AFB is based on AdminFuckery2 -- most of the commands have been ported over.
-This plugin allows server owners to easily setup access flags for admins & install expansions to the plugin, it also allows for scripters to make more commands really fast.
+This plugin allows server owners to easily setup access flags for admins & install expansions to the plugin (AMX-like functionality), it also allows for scripters to make more commands really fast.
 
 ## Quick installation guide:
 1. clone the repo
@@ -29,7 +29,7 @@ use ".afb_help" to view all available commands!
 these commands are always available to everyone:
 ```
 .afb_help
-.afb_who (wontshow ip unless user has any flag from A to Y)
+.afb_who (wont show ip unless user has any flag from A to Y)
 .afb_info
 .afb_listextensions
 ```
