@@ -135,6 +135,7 @@ namespace AF2Entity
 			iFlags += 8; // yaxis
 			
 		g_EntityFuncs.DispatchKeyValue(pWorld.edict(), "spawnflags", iFlags);
+		g_EntityFuncs.DispatchKeyValue(pWorld.edict(), "effects", 2048);
 		g_EntityFuncs.DispatchKeyValue(pWorld.edict(), "targetname", "afb_worldcopy");
 		g_EntityFuncs.DispatchSpawn(pWorld.edict());
 		af2entity.Tell("Created worldcopy!", AFArgs.User, HUD_PRINTCONSOLE);

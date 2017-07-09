@@ -3,7 +3,7 @@ AFB is based on AdminFuckery2 -- most of the commands have been ported over.
 This plugin allows server owners to easily setup access flags for admins & install expansions to the plugin (AMX-like functionality), it also allows for scripters to make more commands really fast.
 
 ## Quick installation guide:
-1. clone the repo
+1. download the repo
 2. extract to /svencoop_addons/ or /svencoop/ folder
 (if you extracted to svencoop_addons): move AFBaseAccess.txt and AFBaseSprayBans.txt from svencoop_addons/scripts/plugins/store/ to svencoop/scripts/plugins/store/
 3. insert AFBase into default_plugins.txt:
