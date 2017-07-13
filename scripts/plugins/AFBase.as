@@ -37,7 +37,7 @@ void PluginInit()
 	for(int i = 1; i <= g_Engine.maxClients; i++)
 	{
 		@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
-		if(pSearch !is null)
+		if(pSearch !is null && pSearch.IsConnected())
 		{
 			string sFixId = AFBase::FormatSafe(AFBase::GetFixedSteamID(pSearch));
 			if(sFixId == "")
@@ -79,7 +79,7 @@ void MapInit()
 	for(int i = 1; i <= g_Engine.maxClients; i++)
 	{
 		@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
-		if(pSearch !is null)
+		if(pSearch !is null && pSearch.IsConnected())
 		{
 			string sFixId = AFBase::FormatSafe(AFBase::GetFixedSteamID(pSearch));
 			if(sFixId == "")
@@ -136,7 +136,7 @@ void AFBaseThink()
 	for(int i = 1; i <= g_Engine.maxClients; i++)
 	{
 		@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
-		if(pSearch !is null)
+		if(pSearch !is null && pSearch.IsConnected())
 		{
 			if(!AFBase::g_afbUserList.exists(pSearch.entindex()))
 			{
@@ -248,7 +248,7 @@ namespace AFBase
 	
 	bool g_afbIsSafePlugin = false;
 	
-	const string g_afInfo = "AFBase 1.2.3 PUBLIC";
+	const string g_afInfo = "AFBase 1.2.4 PUBLIC";
 	
 	bool IsSafe()
 	{
@@ -285,7 +285,7 @@ namespace AFBase
 	
 	string GetFixedSteamID(CBasePlayer@ pUser)
 	{
-		if(pUser is null)
+		if(pUser is null or !pUser.IsConnected())
 		{
 			BaseLog("Player steamID check failed");
 			return "";
@@ -1247,7 +1247,7 @@ namespace AFBase
 			for(int i = 1; i <= g_Engine.maxClients; i++)
 			{
 				@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
-				if(pSearch !is null)
+				if(pSearch !is null && pSearch.IsConnected())
 				{
 					if(!pSearch.IsAlive() && iFlags & TARGETS_NODEAD > 0)
 						continue;
@@ -1276,7 +1276,7 @@ namespace AFBase
 			for(int i = 1; i <= g_Engine.maxClients; i++)
 			{
 				@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
-				if(pSearch !is null)
+				if(pSearch !is null && pSearch.IsConnected())
 				{
 					if(!pSearch.IsAlive() && iFlags & TARGETS_NODEAD > 0)
 						continue;
@@ -1306,7 +1306,7 @@ namespace AFBase
 			for(int i = 1; i <= g_Engine.maxClients; i++)
 			{
 				@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
-				if(pSearch !is null)
+				if(pSearch !is null && pSearch.IsConnected())
 				{
 					if(!pSearch.IsAlive() && iFlags & TARGETS_NODEAD > 0)
 						continue;
@@ -1335,7 +1335,7 @@ namespace AFBase
 			for(int i = 1; i <= g_Engine.maxClients; i++)
 			{
 				@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
-				if(pSearch !is null)
+				if(pSearch !is null && pSearch.IsConnected())
 				{
 					if(!pSearch.IsAlive())
 					{
@@ -1361,7 +1361,7 @@ namespace AFBase
 			for(int i = 1; i <= g_Engine.maxClients; i++)
 			{
 				@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
-				if(pSearch !is null)
+				if(pSearch !is null && pSearch.IsConnected())
 				{
 					if(pSearch.IsAlive())
 					{
@@ -1434,7 +1434,7 @@ namespace AFBase
 			for(int i = 1; i <= g_Engine.maxClients; i++)
 			{
 				@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
-				if(pSearch !is null)
+				if(pSearch !is null && pSearch.IsConnected())
 				{
 					if(!pSearch.IsAlive() && iFlags & TARGETS_NODEAD > 0)
 						continue;
@@ -1475,7 +1475,7 @@ namespace AFBase
 			for(int i = 1; i <= g_Engine.maxClients; i++)
 			{
 				@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
-				if(pSearch !is null)
+				if(pSearch !is null && pSearch.IsConnected())
 				{
 					if(!pSearch.IsAlive() && iFlags & TARGETS_NODEAD > 0)
 						continue;
@@ -1521,7 +1521,7 @@ namespace AFBase
 			for(int i = 1; i <= g_Engine.maxClients; i++)
 			{
 				@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
-				if(pSearch !is null)
+				if(pSearch !is null && pSearch.IsConnected())
 				{
 					sFixId = FormatSafe(GetFixedSteamID(pSearch));
 					if(!pSearch.IsAlive() && iFlags & TARGETS_NODEAD > 0)
@@ -1580,7 +1580,7 @@ namespace AFBase
 			for(int i = 1; i <= g_Engine.maxClients; i++)
 			{
 				@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
-				if(pSearch !is null)
+				if(pSearch !is null && pSearch.IsConnected())
 				{
 					if(!pSearch.IsAlive() && iFlags & TARGETS_NODEAD > 0)
 						continue;
