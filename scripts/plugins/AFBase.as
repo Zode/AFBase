@@ -248,7 +248,7 @@ namespace AFBase
 	
 	bool g_afbIsSafePlugin = false;
 	
-	const string g_afInfo = "AFBase 1.2.4 PUBLIC";
+	const string g_afInfo = "AFBase 1.2.5 PUBLIC";
 	
 	bool IsSafe()
 	{
@@ -850,8 +850,8 @@ namespace AFBase
 		}
 		
 		afbArguments.Args = dOutArguments;
-		afbArguments.bWLock = true;
 		afbArguments.RawArgs = parsedCommand;
+		afbArguments.bWLock = true;
 		AFBaseCommandCallback@ callback = @command.CallBack;
 		callback(afbArguments);
 		return command.SupressChat;
@@ -3004,7 +3004,12 @@ namespace AFBaseBase
 				iOffsetId = iOffsetId-int(floor((1+i)/10));
 				if(iOffsetId < 1)
 					iOffsetId = 1;
-				sVID = sSpace.SubString(0, iOffsetId)+string(1+i)+"  ";
+					
+				if(i >= 9) // 21.7.2017 -- fixes offset by one character when more than 10 players are in the server
+					sVID = sSpace.SubString(0, iOffsetId)+string(1+i)+" ";
+				else
+					sVID = sSpace.SubString(0, iOffsetId)+string(1+i)+"  ";
+					
 				if(!bNoFormat)
 					if(AFBUser.sNick.Length() > 14)
 					{
