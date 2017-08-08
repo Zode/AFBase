@@ -789,15 +789,15 @@ namespace AF2Entity
 			{
 				string sReturn = AF2LegacyCode::getKeyValue(pEntity, AFArgs.GetString(2));
 				if(sReturn != "§§§§N/A")
-					af2player.Tell("Entity key is \""+sReturn+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+					af2entity.Tell("Entity key is \""+sReturn+"\"", AFArgs.User, HUD_PRINTCONSOLE);
 				else
-					af2player.Tell("Unsupported key in get", AFArgs.User, HUD_PRINTCONSOLE);
+					af2entity.Tell("Unsupported key in get", AFArgs.User, HUD_PRINTCONSOLE);
 			}else{
 				if(AFArgs.GetString(2) == "model" || AFArgs.GetString(2) == "viewmodel" || AFArgs.GetString(2) == "weaponmodel" || AFArgs.GetString(2) == "modelindex")
 				{
 					if(!bHasE)
 					{
-						af2player.Tell("Blocked: you require access flag E to do this action (\"highrisk\" key).", AFArgs.User, HUD_PRINTCONSOLE);
+						af2entity.Tell("Blocked: you require access flag E to do this action (\"highrisk\" key).", AFArgs.User, HUD_PRINTCONSOLE);
 						return;
 					}
 				}
@@ -806,7 +806,7 @@ namespace AF2Entity
 				if(sValHold.ToLowercase() == "!null!")
 					sValout = "";
 				
-				af2player.Tell("Set entity key to \""+sValout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+				af2entity.Tell("Set entity key to \""+sValout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
 				g_EntityFuncs.DispatchKeyValue(pEntity.edict(), AFArgs.GetString(2), sValout);
 			}
 			iC++;
@@ -839,15 +839,15 @@ namespace AF2Entity
 			{
 				string sReturn = AF2LegacyCode::getKeyValue(pEntity, AFArgs.GetString(1));
 				if(sReturn != "§§§§N/A")
-					af2player.Tell("Entity key is \""+sReturn+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+					af2entity.Tell("Entity key is \""+sReturn+"\"", AFArgs.User, HUD_PRINTCONSOLE);
 				else
-					af2player.Tell("Unsupported key in get", AFArgs.User, HUD_PRINTCONSOLE);
+					af2entity.Tell("Unsupported key in get", AFArgs.User, HUD_PRINTCONSOLE);
 			}else{
 				if(AFArgs.GetString(1) == "model" || AFArgs.GetString(1) == "viewmodel" || AFArgs.GetString(1) == "weaponmodel" || AFArgs.GetString(1) == "modelindex")
 				{
 					if(!bHasE)
 					{
-						af2player.Tell("Blocked: you require access flag E to do this action (\"highrisk\" key).", AFArgs.User, HUD_PRINTCONSOLE);
+						af2entity.Tell("Blocked: you require access flag E to do this action (\"highrisk\" key).", AFArgs.User, HUD_PRINTCONSOLE);
 						return;
 					}
 				}
@@ -856,7 +856,7 @@ namespace AF2Entity
 				if(sValHold.ToLowercase() == "!null!")
 					sValout = "";
 				
-				af2player.Tell("Set entity key to \""+sValout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+				af2entity.Tell("Set entity key to \""+sValout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
 				g_EntityFuncs.DispatchKeyValue(pEntity.edict(), AFArgs.GetString(1), sValout);
 			}
 			iC++;
@@ -891,15 +891,15 @@ namespace AF2Entity
 		{
 			string sReturn = AF2LegacyCode::getKeyValue(pEntity, AFArgs.GetString(0));
 			if(sReturn != "§§§§N/A")
-				af2player.Tell("Entity key is \""+sReturn+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+				af2entity.Tell("Entity key is \""+sReturn+"\"", AFArgs.User, HUD_PRINTCONSOLE);
 			else
-				af2player.Tell("Unsupported key in get", AFArgs.User, HUD_PRINTCONSOLE);
+				af2entity.Tell("Unsupported key in get", AFArgs.User, HUD_PRINTCONSOLE);
 		}else{
 			if(AFArgs.GetString(0) == "model" || AFArgs.GetString(0) == "viewmodel" || AFArgs.GetString(0) == "weaponmodel" || AFArgs.GetString(0) == "modelindex")
 			{
 				if(!bHasE)
 				{
-					af2player.Tell("Blocked: you require access flag E to do this action (\"highrisk\" key).", AFArgs.User, HUD_PRINTCONSOLE);
+					af2entity.Tell("Blocked: you require access flag E to do this action (\"highrisk\" key).", AFArgs.User, HUD_PRINTCONSOLE);
 					return;
 				}
 			}
@@ -908,7 +908,7 @@ namespace AF2Entity
 			if(sValHold.ToLowercase() == "!null!")
 				sValout = "";
 			
-			af2player.Tell("Set entity key to \""+sValout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+			af2entity.Tell("Set entity key to \""+sValout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
 			g_EntityFuncs.DispatchKeyValue(pEntity.edict(), AFArgs.GetString(0), sValout);
 		}
 	}
