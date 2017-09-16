@@ -27,7 +27,7 @@ class AF2Entity : AFBaseClass
 		RegisterCommand("ent_triggerrange", "sf", "(classname) (range) - trigger entity based on classname and range", ACCESS_F, @AF2Entity::triggerrange);
 		RegisterCommand("ent_rotate", "fff!s", "(x) (y) (z) <targetname> - rotate entity, if no targetname given it will attempt to trace forwards. For best results use 15 increments", ACCESS_F, @AF2Entity::rotate);
 		RegisterCommand("ent_rotateabsolute", "fff!s", "(x) (y) (z) <targetname> - set entity rotation, if no targetname given it will attempt to trace forwards", ACCESS_F, @AF2Entity::rotateabsolute);
-		RegisterCommand("ent_create", "ss!s", "(classname) <\"key:value:key:value:key:value\" etc> - create entity, default position at your origin", ACCESS_F|ACCESS_E, @AF2Entity::create);
+		RegisterCommand("ent_create", "ss!s", "(classname) (targetname) <\"key:value:key:value:key:value\" etc> - create entity, default position at your origin", ACCESS_F|ACCESS_E, @AF2Entity::create);
 		RegisterCommand("ent_movename", "s", "(targetname) - absolute move, entity is placed to your origin", ACCESS_F, @AF2Entity::moveabsolute);
 		RegisterCommand("ent_move", "!b", "- Use without argument to see usage/alias - Grab entity and move it relative to you", ACCESS_F, @AF2Entity::move);
 		RegisterCommand("ent_movecopy", "!b", "- Use without argument to see usage/alias - Copy & grab (copied) entity and move it relative to you", ACCESS_F, @AF2Entity::movecopy);
