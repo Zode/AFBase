@@ -248,7 +248,7 @@ namespace AFBase
 	
 	bool g_afbIsSafePlugin = false;
 	
-	const string g_afInfo = "AFBase 1.2.5 PUBLIC";
+	const string g_afInfo = "AFBase 1.2.6 PUBLIC";
 	
 	bool IsSafe()
 	{
@@ -827,21 +827,49 @@ namespace AFBase
 				dOutArguments[iDLength] = bBool;
 			}else if(cCharAtIndex == 's')
 			{
-				dOutArguments[iDLength] = sCurrent;
+				string sString = "";
+				if(sCurrent.SubString(0, 2) == "r#")
+					sString = string(rxytoval(sCurrent));
+				else
+					sString = sCurrent;
+				dOutArguments[iDLength] = sString;
 			}else if(cCharAtIndex == 'f')
 			{
-				float fFloat = atof(sCurrent);
+				float fFloat = 0.0f;
+				if(sCurrent.SubString(0, 2) == "r#")
+					fFloat = rxytoval(sCurrent);
+				else
+					fFloat = atof(sCurrent);
 				dOutArguments[iDLength] = fFloat;
 			}else if(cCharAtIndex == 'i')
 			{
-				int iInt = atoi(sCurrent);
+				int iInt = 0;
+				if(sCurrent.SubString(0, 2) == "r#")
+					iInt = intrxytoval(sCurrent);
+				else
+					iInt = atoi(sCurrent);
 				dOutArguments[iDLength] = iInt;
 			}else if(cCharAtIndex == 'v')
 			{
 				Vector vVector = Vector(0,0,0);
-				vVector.x = atof(sCurrent);
-				vVector.y = atof(parsedCommand[iDLength+iOffset+1]);
-				vVector.z = atof(parsedCommand[iDLength+iOffset+2]);
+				if(sCurrent.SubString(0, 2) == "r#")
+					vVector.x = rxytoval(sCurrent);
+				else
+					vVector.x = atof(sCurrent);
+					
+				string sOff = parsedCommand[iDLength+iOffset+1];
+					
+				if(sOff.SubString(0, 2) == "r#")
+					vVector.y = rxytoval(sOff);
+				else
+					vVector.y = atof(sOff);
+					
+				sOff = parsedCommand[iDLength+iOffset+2];
+					
+				if(sOff.SubString(0, 2) == "r#")
+					vVector.z = rxytoval(sOff);
+				else
+					vVector.z = atof(sOff);
 				dOutArguments[iDLength] = vVector;
 				iOffset += 2;
 			}
@@ -855,6 +883,33 @@ namespace AFBase
 		AFBaseCommandCallback@ callback = @command.CallBack;
 		callback(afbArguments);
 		return command.SupressChat;
+	}
+	
+	float rxytoval(string input)
+	{
+		string inputb = input;
+		if(inputb.SubString(0, 2) == "r#") // rechecking input
+			inputb = input.SubString(2, input.Length()-2);
+			
+		array<string> inputc = inputb.Split("-");
+		
+		if(inputc.length() >= 2)
+		{
+			float fff = Math.RandomFloat(atof(inputc[0]), atof(inputc[1]));
+			return fff;
+		}
+			
+		if(inputc.length() == 1)
+		{
+			return atof(inputc[0]);
+		}
+			
+		return 0.0f;
+	}
+	
+	int intrxytoval(string input)
+	{
+		return int(floor(rxytoval(input)+0.5f));
 	}
 	
 	array<string> ExplodeString(string sIn, string sNo)
