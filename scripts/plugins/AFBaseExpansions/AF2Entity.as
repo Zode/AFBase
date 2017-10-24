@@ -564,8 +564,20 @@ namespace AF2Entity
 					}
 				}
 				
-				
-				dKeyvalues[asParse[i]] = string(asParse[i+1]);
+				if(asParse[i] == "angles")
+				{
+					if(asParse[i+1] == "self")
+					{
+						dKeyvalues[asParse[i]] = string(AFArgs.User.pev.angles.x)+" "+string(AFArgs.User.pev.angles.y)+" "+string(AFArgs.User.pev.angles.z);
+					}else if(asParse[i+1] == "self180")
+					{
+						dKeyvalues[asParse[i]] = string(AFArgs.User.pev.angles.x)+" "+string(AFArgs.User.pev.angles.y+180)+" "+string(AFArgs.User.pev.angles.z);
+					}else{
+						dKeyvalues[asParse[i]] = string(asParse[i+1]);
+					}
+				}else{
+					dKeyvalues[asParse[i]] = string(asParse[i+1]);
+				}
 			}
 		}
 		
