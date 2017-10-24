@@ -40,7 +40,7 @@ class AF2Entity : AFBaseClass
 		if(AF2Entity::g_entThink !is null)
 			g_Scheduler.RemoveTimer(AF2Entity::g_entThink);
 	
-		@AF2Entity::g_entThink = g_Scheduler.SetInterval("entThink", 0.1f);
+		@AF2Entity::g_entThink = g_Scheduler.SetInterval("entThink", 0.1f+Math.RandomFloat(0.01f, 0.09f));
 	}
 	
 	void MapInit()
@@ -49,7 +49,7 @@ class AF2Entity : AFBaseClass
 		if(AF2Entity::g_entThink !is null)
 			g_Scheduler.RemoveTimer(AF2Entity::g_entThink);
 	
-		@AF2Entity::g_entThink = g_Scheduler.SetInterval("entThink", 0.1f);
+		@AF2Entity::g_entThink = g_Scheduler.SetInterval("entThink", 0.1f+Math.RandomFloat(0.01f, 0.09f));
 	}
 	
 	void PlayerDisconnectEvent(CBasePlayer@ pUser)
@@ -103,7 +103,7 @@ class AF2Entity : AFBaseClass
 		if(AF2Entity::g_entThink !is null)
 			g_Scheduler.RemoveTimer(AF2Entity::g_entThink);
 	
-		@AF2Entity::g_entThink = g_Scheduler.SetInterval("entThink", 0.1f);
+		@AF2Entity::g_entThink = g_Scheduler.SetInterval("entThink", 0.1f+Math.RandomFloat(0.01f, 0.09f));
 	}
 }
 

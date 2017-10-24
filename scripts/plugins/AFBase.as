@@ -69,7 +69,7 @@ void PluginInit()
 	if(AFBase::g_afbThink !is null)
 		g_Scheduler.RemoveTimer(AFBase::g_afbThink);
 		
-	@AFBase::g_afbThink = g_Scheduler.SetInterval("AFBaseThink", 0.2f);
+	@AFBase::g_afbThink = g_Scheduler.SetInterval("AFBaseThink", 2.0f+Math.RandomFloat(0.01f, 0.09f));
 }
 
 void MapInit()
@@ -122,7 +122,7 @@ void MapInit()
 			AFBClass.MapInit();
 	}
 		
-	@AFBase::g_afbThink = g_Scheduler.SetInterval("AFBaseThink", 2.0f);
+	@AFBase::g_afbThink = g_Scheduler.SetInterval("AFBaseThink", 2.0f+Math.RandomFloat(0.01f, 0.09f));
 	AFBase::g_afbIsSafePlugin = true;
 	AFBase::BaseLog("Map init.");
 }
@@ -185,8 +185,6 @@ void AFBaseThink()
 						if(AFBClass !is null)
 							AFBClass.NameChange(afbUser);
 					}
-					
-
 				}
 			}
 		}
@@ -248,7 +246,7 @@ namespace AFBase
 	
 	bool g_afbIsSafePlugin = false;
 	
-	const string g_afInfo = "AFBase 1.2.6 PUBLIC";
+	const string g_afInfo = "AFBase 1.2.7 PUBLIC";
 	
 	bool IsSafe()
 	{
@@ -2456,7 +2454,7 @@ namespace AFBaseBase
 				g_Scheduler.RemoveTimer( m_pFunction );
 				
 			//Think every second
-			@m_pFunction = g_Scheduler.SetInterval( @this, "Think", 1 );
+			@m_pFunction = g_Scheduler.SetInterval( @this, "Think", 1 +Math.RandomFloat(0.01f, 0.09f) );
 		}
 		
 		private PlayerDecal@ FindFreeEntry( const bool bInvalidateOldest )

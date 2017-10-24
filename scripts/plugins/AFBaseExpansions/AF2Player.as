@@ -54,7 +54,7 @@ class AF2Player : AFBaseClass
 		if(AF2Player::g_playerThink !is null)
 			g_Scheduler.RemoveTimer(AF2Player::g_playerThink);
 	
-		@AF2Player::g_playerThink = g_Scheduler.SetInterval("playerThink", 0.25f);
+		@AF2Player::g_playerThink = g_Scheduler.SetInterval("playerThink", 0.25f+Math.RandomFloat(0.01f, 0.09f));
 	}
 	
 	void MapInit()
@@ -66,7 +66,7 @@ class AF2Player : AFBaseClass
 		if(AF2Player::g_playerThink !is null)
 			g_Scheduler.RemoveTimer(AF2Player::g_playerThink);
 	
-		@AF2Player::g_playerThink = g_Scheduler.SetInterval("playerThink", 0.25f);
+		@AF2Player::g_playerThink = g_Scheduler.SetInterval("playerThink", 0.25f+Math.RandomFloat(0.01f, 0.09f));
 	}
 	
 	void StopEvent()
@@ -82,7 +82,7 @@ class AF2Player : AFBaseClass
 		if(AF2Player::g_playerThink !is null)
 			g_Scheduler.RemoveTimer(AF2Player::g_playerThink);
 	
-		@AF2Player::g_playerThink = g_Scheduler.SetInterval("playerThink", 0.25f);
+		@AF2Player::g_playerThink = g_Scheduler.SetInterval("playerThink", 0.25f+Math.RandomFloat(0.01f, 0.09f));
 	}
 	
 	void ReceiveMessageEvent(string sSender, string sIdentifier, dictionary dData)
