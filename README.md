@@ -97,22 +97,23 @@ Quick quide: (arg) required parameter, <arg> optional parameter. Targets: @all, 
  54: .player_keyvalue (targets) (key) <value> <value> <value> - get/set target(s) keyvalue
  55: .player_noclip (targets) <0/1 mode> - set target(s) noclip mode, don't define mode to toggle
  56: .player_nosolid (targets) <0/1 mode> - set target(s) solidity, don't define mode to toggle
- 57: .player_position (target) - returns target position,
- 58: .player_resurrect (targets) <0/1 no respawn> - resurrect target(s)
- 59: .player_setmaxspeed (targets) (speed) - set target(s) max speed
- 60: .player_teleportaim (targets) - teleport target(s) to where you are aiming at
- 61: .player_teleportmeto (target) - teleport you to target
- 62: .player_teleportpos (targets) (vector) - teleport target(s) to position
- 63: .player_teleporttome (targets) - teleport target(s) to you
- 64: .player_viewmode (targets) (0/1 firstperson/thirdperson) - set target(s) viewmode
- 65: say !freeze (targets) <0/1 mode> - freeze/unfreeze target(s), don't define mode to toggle
- 66: say !give (targets) (weapon/ammo/item) - give target(s) stuff
- 67: say !giveammo (targets) - give target(s) ammo
- 68: say !nosolid (targets) <0/1 mode> - set target(s) nosolid mode, don't define mode to toggle
- 69: say !resurrect (targets) <0/1 no respawn> - resurrect target(s)
- 70: say !tpaim (targets) - teleport target(s) to where you are aiming at
- 71: say !tpmeto (target) - teleport you to target
- 72: say !tptome (targets) - teleport target(s) to you
+ 57: .player_notarget (targets) <0/1 mode> - set target(s) notarget, don't define mode to toggle
+ 58: .player_position (target) - returns target position,
+ 59: .player_resurrect (targets) <0/1 no respawn> - resurrect target(s)
+ 60: .player_setmaxspeed (targets) (speed) - set target(s) max speed
+ 61: .player_teleportaim (targets) - teleport target(s) to where you are aiming at
+ 62: .player_teleportmeto (target) - teleport you to target
+ 63: .player_teleportpos (targets) (vector) - teleport target(s) to position
+ 64: .player_teleporttome (targets) - teleport target(s) to you
+ 65: .player_viewmode (targets) (0/1 firstperson/thirdperson) - set target(s) viewmode
+ 66: say !freeze (targets) <0/1 mode> - freeze/unfreeze target(s), don't define mode to toggle
+ 67: say !give (targets) (weapon/ammo/item) - give target(s) stuff
+ 68: say !giveammo (targets) - give target(s) ammo
+ 69: say !nosolid (targets) <0/1 mode> - set target(s) nosolid mode, don't define mode to toggle
+ 70: say !resurrect (targets) <0/1 no respawn> - resurrect target(s)
+ 71: say !tpaim (targets) - teleport target(s) to where you are aiming at
+ 72: say !tpmeto (target) - teleport you to target
+ 73: say !tptome (targets) - teleport target(s) to you
 --------------------------------------------------------------------------------
 [AFB] showing page 8 of 8.
 ```
