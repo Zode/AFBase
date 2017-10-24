@@ -46,6 +46,7 @@ class AF2Player : AFBaseClass
 		RegisterCommand("say !freeze", "s!i", "(targets) <0/1 mode> - freeze/unfreeze target(s), don't define mode to toggle", ACCESS_G, @AF2Player::freeze, false, true);
 		RegisterCommand("player_ignite", "s", "(targets) - ignite target(s)", ACCESS_G, @AF2Player::ignite, true);
 		RegisterCommand("player_viewmode", "sb", "(targets) (0/1 firstperson/thirdperson) - set target(s) viewmode", ACCESS_G, @AF2Player::viewmode);
+		RegisterCommand("player_notarget", "s!i", "(targets) <0/1 mode> - set target(s) notarget, don't define mode to toggle", ACCESS_G, @AF2Player::notarget);
 	
 		g_Hooks.RegisterHook(Hooks::Player::PlayerSpawn, @AF2Player::PlayerSpawn);
 		
@@ -454,6 +455,15 @@ namespace AF2Player
 							if(!pSearch.GetObserver().IsObserver())
 								pSearch.pev.solid = SOLID_BBOX;
 					}
+					
+					if(int(g_playerModes[pSearch.entindex()]) & PLAYER_NOTARGET > 0)
+					{
+						if(pSearch.pev.flags & FL_NOTARGET == 0)
+							pSearch.pev.flags |= FL_NOTARGET;
+					}else{
+						if(pSearch.pev.flags & FL_NOTARGET > 0)
+							pSearch.pev.flags &= ~FL_NOTARGET;
+					}
 				}
 			}
 		}else{
@@ -494,6 +504,15 @@ namespace AF2Player
 					if(!pTarget.GetObserver().IsObserver())
 						pTarget.pev.solid = SOLID_BBOX;
 			}
+			
+			if(int(g_playerModes[pTarget.entindex()]) & PLAYER_NOTARGET > 0)
+			{
+				if(pTarget.pev.flags & FL_NOTARGET == 0)
+					pTarget.pev.flags |= FL_NOTARGET;
+			}else{
+				if(pTarget.pev.flags & FL_NOTARGET > 0)
+					pTarget.pev.flags &= ~FL_NOTARGET;
+			}
 		}
 	}
 	
@@ -505,7 +524,8 @@ namespace AF2Player
 		PLAYER_NOCLIP = 2,
 		PLAYER_FLAMING = 4,
 		PLAYER_GOD = 8,
-		PLAYER_FROZEN = 16
+		PLAYER_FROZEN = 16,
+		PLAYER_NOTARGET = 32
 	}
 
 	void keyvalue(AFBaseArguments@ AFArgs)
@@ -823,6 +843,49 @@ namespace AF2Player
 				pTarget.pev.velocity = Vector(0,0,0);
 				pTarget.pev.flFallVelocity = 0.0f;
 			}
+		}
+	}
+	
+	void notarget(AFBaseArguments@ AFArgs)
+	{
+		array<CBasePlayer@> pTargets;
+		int iMode = AFArgs.GetCount() >= 2 ? AFArgs.GetInt(1) : -1;
+		if(AFBase::GetTargetPlayers(AFArgs.User, HUD_PRINTCONSOLE, AFArgs.GetString(0), TARGETS_NOIMMUNITYCHECK, pTargets))
+		{
+			CBasePlayer@ pTarget = null;
+			for(uint i = 0; i < pTargets.length(); i++)
+			{
+				@pTarget = pTargets[i];
+				bool bIsOn = int(g_playerModes[pTarget.entindex()]) & PLAYER_NOTARGET > 0 ? true : false;
+				if(iMode == -1)
+				{
+					af2player.Tell("Toggled notarget for "+pTarget.pev.netname, AFArgs.User, HUD_PRINTCONSOLE);
+					int iFlags = int(g_playerModes[pTarget.entindex()]);
+					iFlags ^= PLAYER_NOTARGET;
+					g_playerModes[pTarget.entindex()] = iFlags;
+				}else if(iMode == 1)
+				{
+					if(!bIsOn)
+					{
+						af2player.Tell("Set notarget on for "+pTarget.pev.netname, AFArgs.User, HUD_PRINTCONSOLE);
+						int iFlags = int(g_playerModes[pTarget.entindex()]);
+						iFlags |= PLAYER_NOTARGET;
+						g_playerModes[pTarget.entindex()] = iFlags;
+					}else
+						af2player.Tell("Player "+pTarget.pev.netname+" is already in notarget!", AFArgs.User, HUD_PRINTCONSOLE);
+				}else{
+					if(bIsOn)
+					{
+						af2player.Tell("Set notarget for "+pTarget.pev.netname, AFArgs.User, HUD_PRINTCONSOLE);
+						int iFlags = int(g_playerModes[pTarget.entindex()]);
+						iFlags &= ~PLAYER_NOTARGET;
+						g_playerModes[pTarget.entindex()] = iFlags;
+					}else
+						af2player.Tell("Player "+pTarget.pev.netname+" is not in notarget!", AFArgs.User, HUD_PRINTCONSOLE);
+				}
+			}
+			
+			CheckPlayerModes(null);
 		}
 	}
 }
