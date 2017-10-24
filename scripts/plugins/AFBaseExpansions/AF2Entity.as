@@ -27,7 +27,7 @@ class AF2Entity : AFBaseClass
 		RegisterCommand("ent_triggerrange", "sf", "(classname) (range) - trigger entity based on classname and range", ACCESS_F, @AF2Entity::triggerrange);
 		RegisterCommand("ent_rotate", "fff!s", "(x) (y) (z) <targetname> - rotate entity, if no targetname given it will attempt to trace forwards. For best results use 15 increments", ACCESS_F, @AF2Entity::rotate);
 		RegisterCommand("ent_rotateabsolute", "fff!s", "(x) (y) (z) <targetname> - set entity rotation, if no targetname given it will attempt to trace forwards", ACCESS_F, @AF2Entity::rotateabsolute);
-		RegisterCommand("ent_create", "ss!s", "(classname) <\"key:value:key:value:key:value\" etc> - create entity, default position at your origin", ACCESS_F|ACCESS_E, @AF2Entity::create);
+		RegisterCommand("ent_create", "s!s", "(classname) <\"key:value:key:value:key:value\" etc> - create entity, default position at your origin", ACCESS_F|ACCESS_E, @AF2Entity::create);
 		RegisterCommand("ent_movename", "s", "(targetname) - absolute move, entity is placed to your origin", ACCESS_F, @AF2Entity::moveabsolute);
 		RegisterCommand("ent_move", "!b", "- Use without argument to see usage/alias - Grab entity and move it relative to you", ACCESS_F, @AF2Entity::move);
 		RegisterCommand("ent_movecopy", "!b", "- Use without argument to see usage/alias - Copy & grab (copied) entity and move it relative to you", ACCESS_F, @AF2Entity::movecopy);
@@ -541,7 +541,7 @@ namespace AF2Entity
 		string sKeyvalues = AFArgs.GetCount() >= 2 ? AFArgs.GetString(1) : "";
 		dictionary dKeyvalues;
 		bool bOriginDefined = false;
-		
+		Vector vecOrigin = AFArgs.User.pev.origin;
 		if(sKeyvalues != "")
 		{
 			array<string> asParse = sKeyvalues.Split(":");
@@ -551,7 +551,19 @@ namespace AF2Entity
 					break;
 					
 				if(asParse[i] == "origin")
+				{
 					bOriginDefined = true;
+					if(asParse[i+1] == "aim")
+					{
+						bOriginDefined = false;
+						TraceResult tr;
+						g_EngineFuncs.MakeVectors(AFArgs.User.pev.v_angle);
+						Vector vecStart = AFArgs.User.pev.origin+AFArgs.User.pev.view_ofs;
+						g_Utility.TraceLine(vecStart, vecStart+g_Engine.v_forward*4096, dont_ignore_monsters, AFArgs.User.edict(), tr);
+						vecOrigin = tr.vecEndPos;
+					}
+				}
+				
 				
 				dKeyvalues[asParse[i]] = string(asParse[i+1]);
 			}
@@ -565,7 +577,7 @@ namespace AF2Entity
 		}
 		
 		if(!bOriginDefined)
-			g_EntityFuncs.DispatchKeyValue(pEntity.edict(), "origin", string(AFArgs.User.pev.origin.x)+" "+string(AFArgs.User.pev.origin.y)+" "+string(AFArgs.User.pev.origin.z));
+			g_EntityFuncs.DispatchKeyValue(pEntity.edict(), "origin", string(vecOrigin.x)+" "+string(vecOrigin.y)+" "+string(vecOrigin.z));
 		
 		g_EntityFuncs.DispatchSpawn(pEntity.edict());
 		af2entity.Tell("Entity created!", AFArgs.User, HUD_PRINTCONSOLE);
