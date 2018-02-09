@@ -246,7 +246,7 @@ namespace AFBase
 	
 	bool g_afbIsSafePlugin = false;
 	
-	const string g_afInfo = "AFBase 1.2.8 PUBLIC";
+	const string g_afInfo = "AFBase 1.2.9 PUBLIC";
 	
 	bool IsSafe()
 	{
@@ -2500,7 +2500,7 @@ namespace AFBaseBase
 			return pNearest;
 		}
 		
-		void PlayerDecal( CBasePlayer@ pPlayer, const TraceResult& in trace )
+		void PlayerDecalInit( CBasePlayer@ pPlayer, const TraceResult& in trace )
 		{
 			if( pPlayer is null )
 				return;
@@ -2568,7 +2568,7 @@ namespace AFBaseBase
 	
 	HookReturnCode PlayerDecalHook(CBasePlayer@ pPlayer, const TraceResult& in trace)
 	{
-		g_PlayerDecalTracker.PlayerDecal(pPlayer, trace);
+		g_PlayerDecalTracker.PlayerDecalInit(pPlayer, trace);
 		return HOOK_CONTINUE;
 	}
 
