@@ -56,13 +56,16 @@ void PluginInit()
 				afbUser.sSteam = sFixId;
 				afbUser.sIp = "";
 				afbUser.bSprayBan = false;
+				afbUser.iGagMode = -1;
 				afbUser.bLock = true;
 				AFBase::g_afbUserList[pSearch.entindex()] = afbUser;
 			}
 			
 			AFBase::HandleAccess(sFixId, pSearch.entindex());
 			AFBase::HandleSprayban(sFixId, pSearch.entindex());
+			AFBase::HandleGagban(sFixId, pSearch.entindex());
 			AFBaseBase::CheckSprayBan(pSearch);
+			AFBaseBase::CheckGagBan(pSearch);
 		}
 	}
 	
@@ -99,13 +102,16 @@ void MapInit()
 				afbUser.sSteam = sFixId;
 				afbUser.sIp = "";
 				afbUser.bSprayBan = false;
+				afbUser.iGagMode = -1;
 				afbUser.bLock = true;
 				AFBase::g_afbUserList[pSearch.entindex()] = afbUser;
 			}
 			
 			AFBase::HandleAccess(sFixId, pSearch.entindex());
 			AFBase::HandleSprayban(sFixId, pSearch.entindex());
+			AFBase::HandleGagban(sFixId, pSearch.entindex());
 			AFBaseBase::CheckSprayBan(pSearch);
+			AFBaseBase::CheckGagBan(pSearch);
 		}
 	}
 
@@ -150,6 +156,7 @@ void AFBaseThink()
 				afbUser.sOldNick = pSearch.pev.netname;
 				afbUser.sSteam = sFixId;
 				afbUser.bSprayBan = false;
+				afbUser.iGagMode = -1;
 				string sHoldTemp = "";
 				if(AFBase::g_afbTempUser.exists(AFBase::FormatSafe(pSearch.pev.netname)))
 				{
@@ -165,7 +172,9 @@ void AFBaseThink()
 				AFBase::g_afbUserList[pSearch.entindex()] = afbUser;
 				AFBase::HandleAccess(sFixId, pSearch.entindex());
 				AFBase::HandleSprayban(sFixId, pSearch.entindex());
+				AFBase::HandleGagban(sFixId, pSearch.entindex());
 				AFBaseBase::CheckSprayBan(pSearch);
+				AFBaseBase::CheckGagBan(pSearch);
 			}else{
 				AFBase::AFBaseUser afbUser;
 				afbUser = AFBase::GetUser(pSearch);
@@ -246,7 +255,7 @@ namespace AFBase
 	
 	bool g_afbIsSafePlugin = false;
 	
-	const string g_afInfo = "AFBase 1.2.9 PUBLIC";
+	const string g_afInfo = "AFBase 1.3.0 PUBLIC";
 	
 	bool IsSafe()
 	{
@@ -329,6 +338,7 @@ namespace AFBase
 			afbUser.sOldNick = pPlayer.pev.netname;
 			afbUser.sSteam = sFixId;
 			afbUser.bSprayBan = false;
+			afbUser.iGagMode = -1;
 			string sHoldTemp = "";
 			if(g_afbTempUser.exists(FormatSafe(pPlayer.pev.netname)))
 			{
@@ -341,10 +351,59 @@ namespace AFBase
 			}
 			afbUser.sIp = sHoldTemp;
 			afbUser.bLock = true;
+			
+			string sBanOutput = HandleBan(sFixId, false); 
+			string sBanReason = "";
+			int iBanMinutes = -1;
+			ReadBanString(sBanOutput, iBanMinutes, sBanReason);
+			if(iBanMinutes >= 0)
+			{
+				if(iBanMinutes == 0)
+				{
+					g_EngineFuncs.ServerCommand("kick #"+string(g_EngineFuncs.GetPlayerUserId(pPlayer.edict()))+" \""+sBanReason+" (ban time left: permanent)\"\n");
+					BaseLog("GATEKEEP: kicking "+pPlayer.pev.netname+": has permanent ban with reason \""+sBanReason+"\"");
+					afbasebase.TellAll("GATEKEEP: kicking "+pPlayer.pev.netname+": has permanent ban with reason \""+sBanReason+"\"", HUD_PRINTTALK);
+				}else{
+					g_EngineFuncs.ServerCommand("kick #"+string(g_EngineFuncs.GetPlayerUserId(pPlayer.edict()))+" \""+sBanReason+" (ban left: "+string(iBanMinutes)+"m)\"\n");
+					BaseLog("GATEKEEP: kicking "+pPlayer.pev.netname+": has ban with reason \""+sBanReason+"\", "+string(iBanMinutes)+" minute(s) left.");
+					afbasebase.TellAll("GATEKEEP: kicking "+pPlayer.pev.netname+": has ban with reason \""+sBanReason+"\", "+string(iBanMinutes)+" minute(s) left", HUD_PRINTTALK);
+				}
+				
+				return HOOK_CONTINUE;
+			}else if(iBanMinutes == -2)
+			{
+				UpdateBanFile(sFixId, -1, "unban", false);
+			}
+			
+			sBanOutput = HandleBan(afbUser.sIp, true); 
+			sBanReason = "";
+			iBanMinutes = -1;
+			ReadBanString(sBanOutput, iBanMinutes, sBanReason);
+			if(iBanMinutes >= 0)
+			{
+				if(iBanMinutes == 0)
+				{
+					g_EngineFuncs.ServerCommand("kick #"+string(g_EngineFuncs.GetPlayerUserId(pPlayer.edict()))+" \""+sBanReason+" (ban time left: permanent)\"\n");
+					BaseLog("GATEKEEP: kicking "+pPlayer.pev.netname+": has permanent ban with reason \""+sBanReason+"\"");
+					afbasebase.TellAll("GATEKEEP: kicking "+pPlayer.pev.netname+": has permanent ban with reason \""+sBanReason+"\"", HUD_PRINTTALK);
+				}else{
+					g_EngineFuncs.ServerCommand("kick #"+string(g_EngineFuncs.GetPlayerUserId(pPlayer.edict()))+" \""+sBanReason+" (ban left: "+string(iBanMinutes)+"m)\"\n");
+					BaseLog("GATEKEEP: kicking "+pPlayer.pev.netname+": has ban with reason \""+sBanReason+"\", "+string(iBanMinutes)+" minutes left.");
+					afbasebase.TellAll("GATEKEEP: kicking "+pPlayer.pev.netname+": has ban with reason \""+sBanReason+"\", "+string(iBanMinutes)+" minutes left", HUD_PRINTTALK);
+				}
+				
+				return HOOK_CONTINUE;
+			}else if(iBanMinutes == -2)
+			{
+				UpdateBanFile(afbUser.sIp, -1, "unban", true);
+			}
+			
 			g_afbUserList[pPlayer.entindex()] = afbUser;
 			HandleAccess(sFixId, pPlayer.entindex());
 			HandleSprayban(sFixId, pPlayer.entindex());
+			HandleGagban(sFixId, pPlayer.entindex());
 			AFBaseBase::CheckSprayBan(pPlayer);
+			AFBaseBase::CheckGagBan(pPlayer);
 		//}
 		
 		AFBaseClass@ AFBClass = null;
@@ -388,6 +447,7 @@ namespace AFBase
 		private string c_sIp;
 		private bool c_bLock; // slapped on
 		private bool c_bSprayBan; // slapped on x2
+		private int c_iGagMode; // x3
 		
 		int iAccess
 		{
@@ -494,6 +554,18 @@ namespace AFBase
 			set
 			{
 				c_bSprayBan = c_bLock ? c_bSprayBan : value;
+			}
+		}
+		
+		int iGagMode
+		{
+			get const
+			{
+				return c_iGagMode;
+			}
+			set
+			{
+				c_iGagMode = c_bLock ? c_iGagMode : value;
 			}
 		}
 	}
@@ -1019,7 +1091,7 @@ namespace AFBase
 	void UpdateSprayFile(string sId, bool bMode)
 	{
 		array<string> aSHold;
-		File@ file = g_FileSystem.OpenFile("scripts/plugins/store/AFBaseSprayBans.txt", OpenFile::READ);
+		File@ file = g_FileSystem.OpenFile("scripts/plugins/store/AFBaseSBans.txt", OpenFile::READ);
 		bool bUpdatedEntry = false;
 		bool bReadFile = false;
 		if(file !is null && file.IsOpen())
@@ -1081,13 +1153,184 @@ namespace AFBase
 		}
 	}
 	
+	void UpdateGagFile(string sId, int iMode)
+	{
+		array<string> aSHold;
+		File@ file = g_FileSystem.OpenFile("scripts/plugins/store/AFBaseGagBans.txt", OpenFile::READ);
+		bool bUpdatedEntry = false;
+		bool bReadFile = false;
+		if(file !is null && file.IsOpen())
+		{
+			while(!file.EOFReached())
+			{
+				string sLine;
+				file.ReadLine(sLine);
+				//fix for linux
+				string sFix = sLine.SubString(sLine.Length()-1,1);
+				if(sFix == " " || sFix == "\n" || sFix == "\r" || sFix == "\t")
+					sLine = sLine.SubString(0, sLine.Length()-1);
+					
+				if(sLine.SubString(0,1) == "#" || sLine.IsEmpty())
+				{
+					aSHold.insertLast(sLine);
+					continue;
+				}
+				
+				array<string> parsed = sLine.Split(" ");
+					
+				if(parsed.length() < 2)
+				{
+					aSHold.insertLast(sLine);
+					continue;
+				}
+					
+				if(parsed[0] != sId)
+				{
+					aSHold.insertLast(sLine);
+					continue;
+				}
+					
+				if(iMode == -1)
+				{
+					BaseLog("Updated gagbanfile: unbanned "+sId);
+					bUpdatedEntry = true;
+				}
+			}
+			
+			bReadFile = true;
+			file.Close();
+		}else{
+			BaseLog("Installation error: cannot locate gagban file");
+			return;
+		}
+		
+		if(bReadFile)
+			if(!bUpdatedEntry && iMode != -1)
+			{
+				aSHold.insertLast(sId+" "+string(iMode));
+				BaseLog("Updated gagban: banned "+sId);
+			}
+		
+		@file = g_FileSystem.OpenFile("scripts/plugins/store/AFBaseGagBans.txt", OpenFile::WRITE);
+		if(file !is null && file.IsOpen())
+		{
+			for(uint i = 0; i < aSHold.length(); i++)
+			{
+				if(i < aSHold.length()-1)
+					file.Write(aSHold[i]+"\n");
+				else
+					file.Write(aSHold[i]);
+			}
+			
+			file.Close();
+		}
+	}
+	
+	bool UpdateBanFile(string sInput, int iMinutes, string sReason, bool bIsIp)
+	{
+		array<string> aSHold;
+		string sFileToUse = bIsIp ? "scripts/plugins/store/AFBaseIPBans.txt" : "scripts/plugins/store/AFBaseIDBans.txt";
+		File@ file = g_FileSystem.OpenFile(sFileToUse, OpenFile::READ);
+		bool bUpdatedEntry = false;
+		bool bReadFile = false;
+		bool bOutput = false;
+		
+		if(file !is null && file.IsOpen())
+		{
+			while(!file.EOFReached())
+			{
+				string sLine;
+				file.ReadLine(sLine);
+				//fix for linux
+				string sFix = sLine.SubString(sLine.Length()-1,1);
+				if(sFix == " " || sFix == "\n" || sFix == "\r" || sFix == "\t")
+					sLine = sLine.SubString(0, sLine.Length()-1);
+					
+				if(sLine.SubString(0,1) == "#" || sLine.IsEmpty())
+				{
+					aSHold.insertLast(sLine);
+					continue;
+				}
+				
+				array<string> parsed = sLine.Split(" ");
+					
+				if(parsed.length() < 3)
+				{
+					aSHold.insertLast(sLine);
+					continue;
+				}
+					
+				if(parsed[0] != sInput)
+				{
+					aSHold.insertLast(sLine);
+					continue;
+				}
+					
+				if(iMinutes == -1)
+				{
+					if(bIsIp)
+						BaseLog("Updated IP ban file: unbanned "+sInput);
+					else
+						BaseLog("Updated ID ban file: unbanned "+sInput);
+					bUpdatedEntry = true;
+					bOutput = true;
+				}
+			}
+			
+			bReadFile = true;
+			file.Close();
+		}else{
+			if(bIsIp)
+				BaseLog("Installation error: cannot locate IP ban file");
+			else
+				BaseLog("Installation error: cannot locate ID ban file");
+			return false;
+		}
+		
+		if(bReadFile)
+			if(!bUpdatedEntry && iMinutes != -1)
+			{
+				if(iMinutes == 0)
+				{
+					aSHold.insertLast(sInput+" 0 "+sReason);
+				}else{
+					DateTime datetime;
+					time_t unixtime = datetime.ToUnixTimestamp();
+					datetime.SetUnixTimestamp(unixtime + (iMinutes*60));
+					string unixTime = datetime.ToUnixTimestamp();
+					aSHold.insertLast(sInput+" "+string(unixTime)+" "+sReason);
+				}
+				
+				if(bIsIp)
+					BaseLog("Updated ip ban: banned "+sInput);
+				else
+					BaseLog("Updated id ban: banned "+sInput);
+			}
+		
+		@file = g_FileSystem.OpenFile(sFileToUse, OpenFile::WRITE);
+		if(file !is null && file.IsOpen())
+		{
+			for(uint i = 0; i < aSHold.length(); i++)
+			{
+				if(i < aSHold.length()-1)
+					file.Write(aSHold[i]+"\n");
+				else
+					file.Write(aSHold[i]);
+			}
+			
+			file.Close();
+		}
+		
+		return bOutput;
+	}
+	
 	bool CheckAccess(CBasePlayer@ pUser, int iCheckAccess)
 	{		
 		AFBaseUser@ afbUser = cast<AFBaseUser@>(g_afbUserList[pUser.entindex()]);
 		if(afbUser is null)
 			return false;
 		
-		if(afbUser.iAccess & iCheckAccess > 0)
+		if(afbUser.iAccess & iCheckAccess == iCheckAccess)
 			return true;
 			
 		return false;
@@ -1096,7 +1339,7 @@ namespace AFBase
 	bool CheckAccess(int sId, int iCheckAccess)
 	{
 		AFBaseUser@ afbUser = cast<AFBaseUser@>(g_afbUserList[sId]);
-		if(afbUser.iAccess & iCheckAccess > 0)
+		if(afbUser.iAccess & iCheckAccess == iCheckAccess)
 			return true;
 			
 		return false;
@@ -1255,10 +1498,140 @@ namespace AFBase
 		}
 	}
 	
+	void HandleGagban(string sID, int iIndex)
+	{
+		File@ file = g_FileSystem.OpenFile("scripts/plugins/store/AFBaseGagBans.txt", OpenFile::READ);
+		if(file !is null && file.IsOpen())
+		{
+			while(!file.EOFReached())
+			{
+				string sLine;
+				file.ReadLine(sLine);
+				//fix for linux
+				string sFix = sLine.SubString(sLine.Length()-1,1);
+				if(sFix == " " || sFix == "\n" || sFix == "\r" || sFix == "\t")
+					sLine = sLine.SubString(0, sLine.Length()-1);
+					
+				if(sLine.SubString(0,1) == "#" || sLine.IsEmpty())
+					continue;
+					
+				array<string> parsed = sLine.Split(" ");
+				if(parsed.length() < 2)
+					continue;
+					
+				if(parsed[0] != sID)
+					continue;
+					
+				//just makin sure linux wont fuck
+				sFix = parsed[1].SubString(parsed[1].Length()-1,1);
+				if(sFix == " " || sFix == "\n" || sFix == "\r" || sFix == "\t")
+					parsed[1] = parsed[1].SubString(0, parsed[1].Length()-1);
+				
+				BaseLog("Applied gag block for "+sID);
+				AFBaseUser afbUser = cast<AFBaseUser@>(g_afbUserList[iIndex]);
+				afbUser.bLock = false;
+				afbUser.iGagMode = atoi(parsed[1]);
+				afbUser.bLock = true;
+				g_afbUserList[iIndex] = afbUser;
+				file.Close();
+				break;
+			}
+			
+			file.Close();
+		}else{
+			BaseLog("Installation error: cannot locate gagban file");
+		}
+	}
+	
+	void ReadBanString(string &in sInput, int &out iMinutes, string &out sReason)
+	{
+		array<string> parsed = sInput.Split("§§§§");
+		sReason = parsed[1];
+		//BaseLog("reading: time is "+parsed[0]);
+		//BaseLog("reading: reason is "+parsed[1]);
+		
+		
+		if(parsed[0] != "-1" && parsed[0] != "0")
+		{
+			DateTime datetime;
+			time_t unixtime = datetime.ToUnixTimestamp();
+			DateTime datetime2 = datetime;
+			datetime2.SetUnixTimestamp(atoi(parsed[0]));
+			time_t unixtime2 = datetime2.ToUnixTimestamp();
+			time_t unixtimeleft = unixtime2-unixtime;
+			bool bPass = unixtime2 < unixtime ? true : false;
+			if(bPass)
+			{
+				iMinutes = -2;
+			}else{
+				int iWanted = int(unixtimeleft/60);
+				if(iWanted < 1)
+					iWanted = 1; // fix: dont show "Permanent ban" for last minute lmao
+				iMinutes = iWanted;
+			}
+		}else if(parsed[0] == "0")
+		{
+			iMinutes = 0;
+		}else{
+			iMinutes = -1;
+		}
+		
+	}
+	
+	string HandleBan(string sInput, bool bIsIp) // special!
+	{
+		string sFileToUse = bIsIp ? "scripts/plugins/store/AFBaseIPBans.txt" : "scripts/plugins/store/AFBaseIDBans.txt";
+		string sOutput = "-1§§§§N/A";
+		File@ file = g_FileSystem.OpenFile(sFileToUse, OpenFile::READ);
+		if(file !is null && file.IsOpen())
+		{
+			while(!file.EOFReached())
+			{
+				string sLine;
+				file.ReadLine(sLine);
+				//fix for linux
+				string sFix = sLine.SubString(sLine.Length()-1,1);
+				if(sFix == " " || sFix == "\n" || sFix == "\r" || sFix == "\t")
+					sLine = sLine.SubString(0, sLine.Length()-1);
+					
+				if(sLine.SubString(0,1) == "#" || sLine.IsEmpty())
+					continue;
+					
+				array<string> parsed = sLine.Split(" ");
+				if(parsed.length() < 3)
+					continue;
+					
+				if(parsed[0] != sInput)
+					continue;
+					
+				string sMinutes = parsed[1];
+				string sReason = "";
+				for(uint i = 2; i < parsed.length; i++)
+					if(i > 2)
+						sReason += " "+parsed[i];
+					else
+						sReason += parsed[i];
+					
+				sOutput = sMinutes+"§§§§"+sReason;
+				file.Close();
+				break;
+			}
+			
+			file.Close();
+		}else{
+			if(bIsIp)
+				BaseLog("Installation error: cannot locate IP ban file");
+			else
+				BaseLog("Installation error: cannot locate ID ban file");
+		}
+		
+		return sOutput;
+	}
+	
 	void BaseTell(string sMsg, CBasePlayer@ pUser, HUD hudTarget)
 	{
 		if(hudTarget == HUD_PRINTTALK)
-			g_PlayerFuncs.ClientPrint(pUser, hudTarget, "[AFB] "+sMsg);
+			g_PlayerFuncs.ClientPrint(pUser, hudTarget, "[AFB] "+sMsg+"\n");
 		else
 			g_PlayerFuncs.ClientPrint(pUser, hudTarget, "[AFB] "+sMsg+"\n");
 	}
@@ -1267,7 +1640,7 @@ namespace AFBase
 	{
 		string sHoldIn;
 		if(targetHud == HUD_PRINTTALK)
-			sHoldIn = "[AFB] "+sMsg;
+			sHoldIn = "[AFB] "+sMsg+"\n";
 		else
 			sHoldIn = "[AFB] "+sMsg+"\n";
 			
@@ -1284,7 +1657,7 @@ namespace AFBase
 	void BaseTellAll(string sMsg, HUD hudTarget)
 	{
 		if(hudTarget == HUD_PRINTTALK)
-			g_PlayerFuncs.ClientPrintAll(hudTarget, "[AFB] "+sMsg);
+			g_PlayerFuncs.ClientPrintAll(hudTarget, "[AFB] "+sMsg+"\n");
 		else
 			g_PlayerFuncs.ClientPrintAll(hudTarget, "[AFB] "+sMsg+"\n");
 	}
@@ -2027,7 +2400,7 @@ abstract class AFBaseClass
 	void Tell(string sMsg, CBasePlayer@ pUser, HUD hudTarget) final
 	{
 		if(hudTarget == HUD_PRINTTALK)
-			g_PlayerFuncs.ClientPrint(pUser, hudTarget, "["+this.ShortName+"] "+sMsg);
+			g_PlayerFuncs.ClientPrint(pUser, hudTarget, "["+this.ShortName+"] "+sMsg+"\n");
 		else
 			g_PlayerFuncs.ClientPrint(pUser, hudTarget, "["+this.ShortName+"] "+sMsg+"\n");
 	}
@@ -2035,7 +2408,7 @@ abstract class AFBaseClass
 	void TellAll(string sMsg, HUD hudTarget) final
 	{
 		if(hudTarget == HUD_PRINTTALK)
-			g_PlayerFuncs.ClientPrintAll(hudTarget, "["+this.ShortName+"] "+sMsg);
+			g_PlayerFuncs.ClientPrintAll(hudTarget, "["+this.ShortName+"] "+sMsg+"\n");
 		else
 			g_PlayerFuncs.ClientPrintAll(hudTarget, "["+this.ShortName+"] "+sMsg+"\n");
 	}
@@ -2044,7 +2417,7 @@ abstract class AFBaseClass
 	{
 		string sHoldIn;
 		if(targetHud == HUD_PRINTTALK)
-			sHoldIn = "["+this.ShortName+"] "+sMsg;
+			sHoldIn = "["+this.ShortName+"] "+sMsg+"\n";
 		else
 			sHoldIn = "["+this.ShortName+"] "+sMsg+"\n";
 		while(sHoldIn.Length() > 128)
@@ -2096,11 +2469,22 @@ class AFBaseBase : AFBaseClass
 		RegisterCommand("admin_ban", "s!sib", "(\"steamid\") <\"reason\"> <duration in minutes, 0 for infinite> <0/1 ban ip instead of steamid> - ban target", ACCESS_D, @AFBaseBase::ban);
 		RegisterCommand("admin_unban", "s", "(\"steamid or ip\") - unban target", ACCESS_D, @AFBaseBase::unban);
 		RegisterCommand("afb_setlast", "s", "(target) - sets last target, use if you only want to select somebody without running a command on them", ACCESS_G, @AFBaseBase::selectlast);
-		RegisterCommand("admin_banlate", "s!i", "(\"steamid/ip\") <duration in minutes, 0 for inifnite> - late ban target, basically adds to ban list. Doesn't validate player like admin_ban does.", ACCESS_D, @AFBaseBase::banlate);
+		RegisterCommand("admin_banlate", "s!si", "(\"steamid/ip\") <\"reason\"> <duration in minutes, 0 for infinite> - late ban target, basically adds to ban list. Doesn't validate player like admin_ban does.", ACCESS_D, @AFBaseBase::banlate);
 		RegisterCommand("admin_blockdecals", "sb", "(target) (0/1 unban/ban) - Ban target from spraying", ACCESS_G, @AFBaseBase::bandecals);
+		RegisterCommand("admin_gag", "ss", "(targets) (mode a/c/v) - gag player, a = all, c = chat, v = voice", ACCESS_G, @AFBaseBase::gag);
+		RegisterCommand("admin_ungag", "s", "(targets) - ungag player", ACCESS_G, @AFBaseBase::ungag);
+		
+		@AFBaseBase::cvar_iBanMaxMinutes = CCVar("afb_maxban", 10080, "maximum time for bans in minutes (default: 10080)", ConCommandFlag::AdminOnly, CVarCallback(this.afb_cvar_ibanmaxminutes));
 		
 		g_Hooks.RegisterHook(Hooks::Player::PlayerDecal, @AFBaseBase::PlayerDecalHook);
 		g_Hooks.RegisterHook(Hooks::Player::PlayerSpawn, @AFBaseBase::PlayerSpawn);
+		g_Hooks.RegisterHook(Hooks::Player::ClientSay, @AFBaseBase::PlayerTalk);
+	}
+	
+	void afb_cvar_ibanmaxminutes(CCVar@ cvar, const string &in szOldValue, float flOldValue)
+	{
+		if(cvar.GetInt() < 0)
+			cvar.SetInt(1);
 	}
 	
 	void MapInit()
@@ -2122,6 +2506,175 @@ class AFBaseBase : AFBaseClass
 
 namespace AFBaseBase
 {
+	void AddBan(CBasePlayer@ pTarget, int iMinutes, string sReason, bool bUseIp)
+	{
+		string sId = AFBase::FormatSafe(AFBase::GetFixedSteamID(pTarget));
+		AFBase::AFBaseUser afbUser = AFBase::GetUser(pTarget);
+		string sIp = afbUser.sIp;
+		
+		if(bUseIp)
+			AFBase::UpdateBanFile(sIp, iMinutes, sReason, true);
+		else
+			AFBase::UpdateBanFile(sId, iMinutes, sReason, false);
+		
+		if(iMinutes == 0)
+			g_EngineFuncs.ServerCommand("kick #"+string(g_EngineFuncs.GetPlayerUserId(pTarget.edict()))+" \""+sReason+" (ban duration: permanent)\"\n");
+		else
+			g_EngineFuncs.ServerCommand("kick #"+string(g_EngineFuncs.GetPlayerUserId(pTarget.edict()))+" \""+sReason+" (ban duration: "+string(iMinutes)+"m)\"\n");
+	}
+	
+	void AddBan(string sInput, int iMinutes, string sReason, bool bIsIp)
+	{
+		if(bIsIp)
+			AFBase::UpdateBanFile(sInput, iMinutes, sReason, true);
+		else
+			AFBase::UpdateBanFile(sInput, iMinutes, sReason, false);
+	}
+	
+	bool RemoveBan(string sInput, bool bIsIp)
+	{
+		bool bOut = false;
+		if(bIsIp)
+			bOut = AFBase::UpdateBanFile(sInput, -1, "unban", true);
+		else
+			bOut = AFBase::UpdateBanFile(sInput, -1, "unban", false);
+			
+		return bOut;
+	}
+
+	void ungag(AFBaseArguments@ AFArgs)
+	{
+		array<CBasePlayer@> pTargets;
+		if(AFBase::GetTargetPlayers(AFArgs.User, HUD_PRINTCONSOLE, AFArgs.GetString(0), TARGETS_NOALL|TARGETS_NOAIM|TARGETS_NORANDOM, pTargets))
+		{
+			CBasePlayer@ pTarget = null;
+			for(uint i = 0; i < pTargets.length(); i++)
+			{
+				@pTarget = pTargets[i];
+				int iIndex = pTarget.entindex();
+				AFBase::AFBaseUser afbUser = cast<AFBase::AFBaseUser@>(AFBase::g_afbUserList[iIndex]);
+				if(afbUser.iGagMode == -1)
+				{
+					afbasebase.Tell("Won't ungag: "+pTarget.pev.netname+"! Target already is ungagged.", AFArgs.User, HUD_PRINTCONSOLE);
+					continue;
+				}
+				
+				afbUser.bLock = false;
+				afbUser.iGagMode = -1;
+				afbUser.bLock = true;
+				AFBase::g_afbUserList[iIndex] = afbUser;
+				
+				CheckGagBan(pTarget);
+				string sFixId = AFBase::FormatSafe(AFBase::GetFixedSteamID(pTarget));
+				AFBase::UpdateGagFile(sFixId, -1);
+				
+				afbasebase.TellAll("Admin "+AFArgs.User.pev.netname+" ungagged player \""+AFArgs.GetString(0)+"\"", HUD_PRINTTALK);
+				afbasebase.Tell("Ungagged \""+AFArgs.GetString(0)+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+				afbasebase.Log("Admin "+AFArgs.User.pev.netname+" ungagged \""+AFArgs.GetString(0)+"\"");
+			}
+		}
+	}
+
+	HookReturnCode PlayerTalk(SayParameters@ sparams)
+	{
+		CBasePlayer@ pUser = sparams.GetPlayer();
+		
+		if(AFBase::g_afbUserList.exists(pUser.entindex()))
+		{
+			AFBase::AFBaseUser afbUser = cast<AFBase::AFBaseUser@>(AFBase::g_afbUserList[pUser.entindex()]);
+			if(afbUser.iGagMode == 1 || afbUser.iGagMode == 3)
+			{
+				afbasebase.Tell("Can't talk: gagged", pUser, HUD_PRINTTALK);
+				sparams.set_ShouldHide(true);
+				return HOOK_HANDLED;
+			}
+		}
+		
+		return HOOK_CONTINUE;
+	}
+
+	void CheckGagBan(CBasePlayer@ pPlayer)
+	{
+		if(pPlayer is null)
+			return;
+			
+		if(AFBase::g_afbUserList.exists(pPlayer.entindex()))
+		{
+			AFBase::AFBaseUser afbUser = cast<AFBase::AFBaseUser@>(AFBase::g_afbUserList[pPlayer.entindex()]);
+			if(afbUser.iGagMode >= 2)
+			{
+				CBasePlayer@ pSearch = null;
+				for(int i = 1; i <= g_Engine.maxClients; i++)
+				{
+					if(pSearch !is null)
+						g_EngineFuncs.Voice_SetClientListening(pSearch.entindex(), pPlayer.entindex(), false);
+				}
+			}else{
+				CBasePlayer@ pSearch = null;
+				for(int i = 1; i <= g_Engine.maxClients; i++)
+				{
+					if(pSearch !is null)
+						g_EngineFuncs.Voice_SetClientListening(pSearch.entindex(), pPlayer.entindex(), true);
+				}
+			}
+		}
+	}
+
+	void gag(AFBaseArguments@ AFArgs)
+	{
+		string sMode = AFArgs.GetString(1);
+		if(sMode != "a" && sMode != "c" && sMode != "v")
+		{
+			afbasebase.Tell("Unknown mode!", AFArgs.User, HUD_PRINTCONSOLE);
+			return;
+		}
+		int iMode = 0;
+		if(sMode == "a")
+			iMode = 3;
+		else if(sMode == "c")
+			iMode = 1;
+		else
+			iMode = 2;
+			
+		string sOutMode = "";
+		if(iMode == 3)
+			sOutMode = "chat & voice";
+		else if(iMode == 2)
+			sOutMode = "voice";
+		else
+			sOutMode = "chat";
+	
+		array<CBasePlayer@> pTargets;
+		if(AFBase::GetTargetPlayers(AFArgs.User, HUD_PRINTCONSOLE, AFArgs.GetString(0), TARGETS_NOALL|TARGETS_NOAIM|TARGETS_NORANDOM, pTargets))
+		{
+			CBasePlayer@ pTarget = null;
+			for(uint i = 0; i < pTargets.length(); i++)
+			{
+				@pTarget = pTargets[i];
+				int iIndex = pTarget.entindex();
+				AFBase::AFBaseUser afbUser = cast<AFBase::AFBaseUser@>(AFBase::g_afbUserList[iIndex]);
+				if(afbUser.iGagMode != -1)
+				{
+					afbasebase.Tell("Won't gag: "+pTarget.pev.netname+"! Target already has gag mode set.", AFArgs.User, HUD_PRINTCONSOLE);
+					continue;
+				}
+				
+				afbUser.bLock = false;
+				afbUser.iGagMode = iMode;
+				afbUser.bLock = true;
+				AFBase::g_afbUserList[iIndex] = afbUser;
+				
+				CheckGagBan(pTarget);
+				string sFixId = AFBase::FormatSafe(AFBase::GetFixedSteamID(pTarget));
+				AFBase::UpdateGagFile(sFixId, iMode);
+				
+				afbasebase.TellAll("Admin "+AFArgs.User.pev.netname+" gagged player \""+AFArgs.GetString(0)+"\" (mode: "+sOutMode+")", HUD_PRINTTALK);
+				afbasebase.Tell("Gagged \""+AFArgs.GetString(0)+"\" (mode: "+sOutMode+")", AFArgs.User, HUD_PRINTCONSOLE);
+				afbasebase.Log("Admin "+AFArgs.User.pev.netname+" gagged \""+AFArgs.GetString(0)+"\" (mode: "+sOutMode+" )");
+			}
+		}
+	}
+
 	HookReturnCode PlayerSpawn(CBasePlayer@ pPlayer)
 	{
 		EHandle ePlayer = pPlayer;
@@ -2136,6 +2689,7 @@ namespace AFBaseBase
 		{
 			CBaseEntity@ pPlayer = ePlayer;
 			CheckSprayBan(cast<CBasePlayer@>(pPlayer));
+			CheckGagBan(cast<CBasePlayer@>(pPlayer));
 		}
 	}
 	
@@ -2201,9 +2755,22 @@ namespace AFBaseBase
 
 	void banlate(AFBaseArguments@ AFArgs)
 	{
-		int iMinutes = AFArgs.GetCount() >= 1 ? AFArgs.GetInt(1) : 24;
+		string sReason = AFArgs.GetCount() >= 2 ? AFArgs.GetString(1) : "banned";
+		int iMinutes = AFArgs.GetCount() >= 3 ? AFArgs.GetInt(2) : 30;
 		if(iMinutes < 0)
 			iMinutes = 0;
+			
+		if(iMinutes == 0)
+		{
+			if(!AFBase::CheckAccess(AFArgs.User, ACCESS_C))
+			{
+				afbasebase.Tell("Can't permaban: you are missing access flag C!", AFArgs.User, HUD_PRINTCONSOLE);
+				return;
+			}
+		}else if(iMinutes > cvar_iBanMaxMinutes.GetInt()){
+			iMinutes = cvar_iBanMaxMinutes.GetInt();
+			afbasebase.Tell("Restricting ban time, larger than cvar: "+string(cvar_iBanMaxMinutes.GetInt()), AFArgs.User, HUD_PRINTCONSOLE);
+		}
 			
 		string sHold = AFArgs.GetString(0);
 		if(sHold.SubString(0,6).ToLowercase() == "steam_")
@@ -2214,14 +2781,12 @@ namespace AFBaseBase
 				afbasebase.Tell("Banned \""+AFArgs.GetString(0)+"\" for "+string(iMinutes)+" minutes", AFArgs.User, HUD_PRINTCONSOLE);
 				afbasebase.Log("Admin "+AFArgs.User.pev.netname+" banned \""+AFArgs.GetString(0)+"\" for "+string(iMinutes)+" minutes");
 			}else{
-				afbasebase.TellAll("Admin "+AFArgs.User.pev.netname+" banned player \""+AFArgs.GetString(0)+"\" permanently", HUD_PRINTTALK);
+				afbasebase.TellAll("Admin "+AFArgs.User.pev.netname+" banned \""+AFArgs.GetString(0)+"\" permanently", HUD_PRINTTALK);
 				afbasebase.Tell("Banned \""+AFArgs.GetString(0)+"\" permanently", AFArgs.User, HUD_PRINTCONSOLE);
 				afbasebase.Log("Admin "+AFArgs.User.pev.netname+" banned \""+AFArgs.GetString(0)+"\" permanently");
 			}
 			
-			g_EngineFuncs.ServerCommand("banid "+string(iMinutes)+" "+AFArgs.GetString(0)+"\n");
-			g_EngineFuncs.ServerCommand("wait\n");
-			g_EngineFuncs.ServerCommand("writeid\n");
+			AddBan(sHold, iMinutes, sReason, false);
 		}else{
 			if(sHold.ToLowercase() == "loopback" || sHold == "127.0.0.1")
 			{
@@ -2232,17 +2797,15 @@ namespace AFBaseBase
 			if(iMinutes > 0)
 			{
 				afbasebase.TellAll("Admin "+AFArgs.User.pev.netname+" banned \""+AFArgs.GetString(0)+"\" for "+string(iMinutes)+" minutes", HUD_PRINTTALK);
-				afbasebase.Tell("Banned player \""+AFArgs.GetString(0)+"\" for "+string(iMinutes)+" minutes", AFArgs.User, HUD_PRINTCONSOLE);
+				afbasebase.Tell("Banned \""+AFArgs.GetString(0)+"\" for "+string(iMinutes)+" minutes", AFArgs.User, HUD_PRINTCONSOLE);
 				afbasebase.Log("Admin "+AFArgs.User.pev.netname+" banned \""+AFArgs.GetString(0)+"\" for "+string(iMinutes)+" minutes");
 			}else{
-				afbasebase.TellAll("Admin "+AFArgs.User.pev.netname+" banned player \""+AFArgs.GetString(0)+"\" permanently", HUD_PRINTTALK);
-				afbasebase.Tell("Banned player \""+AFArgs.GetString(0)+"\" permanently", AFArgs.User, HUD_PRINTCONSOLE);
+				afbasebase.TellAll("Admin "+AFArgs.User.pev.netname+" banned \""+AFArgs.GetString(0)+"\" permanently", HUD_PRINTTALK);
+				afbasebase.Tell("Banned \""+AFArgs.GetString(0)+"\" permanently", AFArgs.User, HUD_PRINTCONSOLE);
 				afbasebase.Log("Admin "+AFArgs.User.pev.netname+" banned \""+AFArgs.GetString(0)+"\" permanently");
 			}
 			
-			g_EngineFuncs.ServerCommand("addip "+string(iMinutes)+" "+AFArgs.GetString(0)+"\n");
-			g_EngineFuncs.ServerCommand("wait\n");
-			g_EngineFuncs.ServerCommand("writeip\n");
+			AddBan(sHold, iMinutes, sReason, true);
 		}
 	}
 
@@ -2260,23 +2823,25 @@ namespace AFBaseBase
 		}
 	}
 
+	CCVar@ cvar_iBanMaxMinutes;
+	
 	void ban(AFBaseArguments@ AFArgs)
 	{
 		array<CBasePlayer@> pTargets;
 		string sReason = AFArgs.GetCount() >= 2 ? AFArgs.GetString(1) : "banned";
-		int iMinutes = AFArgs.GetCount() >= 3 ? AFArgs.GetInt(2) : 24;
+		int iMinutes = AFArgs.GetCount() >= 3 ? AFArgs.GetInt(2) : 30;
 		bool bBanIp = AFArgs.GetCount() >= 4 ? AFArgs.GetBool(3) : false;
 		if(iMinutes < 0)
 			iMinutes = 0;
 			
-		if(AFBase::GetTargetPlayers(AFArgs.User, HUD_PRINTCONSOLE, AFArgs.GetString(0), TARGETS_NOALL|TARGETS_NOAIM|TARGETS_NORANDOM|TARGETS_NONICK, pTargets))
+		if(AFBase::GetTargetPlayers(AFArgs.User, HUD_PRINTCONSOLE, AFArgs.GetString(0), TARGETS_NOALL|TARGETS_NOAIM|TARGETS_NORANDOM, pTargets))
 		{
 			CBasePlayer@ pTarget = null;
 			for(uint i = 0; i < pTargets.length(); i++)
 			{
 				@pTarget = pTargets[i];
-				string sHold = AFArgs.GetString(0);
-				if(sHold.SubString(0,6).ToLowercase() == "steam_")
+				string sHold = AFBase::FormatSafe(AFBase::GetFixedSteamID(pTarget));
+				if(sHold != "")
 				{
 					string sId = AFBase::FormatSafe(AFBase::GetFixedSteamID(pTarget));
 					AFBase::AFBaseUser afbUser = AFBase::GetUser(pTarget);
@@ -2299,6 +2864,18 @@ namespace AFBaseBase
 						return;
 					}
 					
+					if(iMinutes == 0)
+					{
+						if(!AFBase::CheckAccess(AFArgs.User, ACCESS_C))
+						{
+							afbasebase.Tell("Can't permaban: you are missing access flag C!", AFArgs.User, HUD_PRINTCONSOLE);
+							return;
+						}
+					}else if(iMinutes > cvar_iBanMaxMinutes.GetInt()){
+						iMinutes = cvar_iBanMaxMinutes.GetInt();
+						afbasebase.Tell("Restricting ban time, larger than cvar: "+string(cvar_iBanMaxMinutes.GetInt()), AFArgs.User, HUD_PRINTCONSOLE);
+					}
+					
 					string sFill = bBanIp ? "ip: "+sIp : "steamid: "+sId;
 					if(iMinutes > 0)
 					{
@@ -2311,7 +2888,9 @@ namespace AFBaseBase
 						afbasebase.Log("Admin "+AFArgs.User.pev.netname+" banned player "+pTarget.pev.netname+" ("+sFill+") permanently with reason \""+sReason+"\"");
 					}
 					
-					if(iMinutes > 0)
+					AddBan(pTarget, iMinutes, sReason, bBanIp);
+					
+					/*if(iMinutes > 0)
 						g_EngineFuncs.ServerCommand("kick #"+string(g_EngineFuncs.GetPlayerUserId(pTarget.edict()))+" \""+sReason+" (ban duration: "+string(iMinutes)+")\"\n");
 					else
 						g_EngineFuncs.ServerCommand("kick #"+string(g_EngineFuncs.GetPlayerUserId(pTarget.edict()))+" \""+sReason+" (ban duration: permanent)\"\n");
@@ -2324,7 +2903,7 @@ namespace AFBaseBase
 					if(!bBanIp)
 						g_EngineFuncs.ServerCommand("writeid\n");
 					if(bBanIp)
-						g_EngineFuncs.ServerCommand("writeip\n");
+						g_EngineFuncs.ServerCommand("writeip\n");*/
 				}
 			}
 		}
@@ -2335,17 +2914,23 @@ namespace AFBaseBase
 		string sHold = AFArgs.GetString(0);
 		if(sHold.SubString(0,6).ToLowercase() == "steam_")
 		{
-			afbasebase.TellAll("Admin "+AFArgs.User.pev.netname+" unbanned "+sHold, HUD_PRINTTALK);
-			afbasebase.Tell("Unbanned "+sHold, AFArgs.User, HUD_PRINTCONSOLE);
-			afbasebase.Log("Admin "+AFArgs.User.pev.netname+" unbanned "+sHold);
-			g_EngineFuncs.ServerCommand("removeid "+sHold+"\n");
-			g_EngineFuncs.ServerCommand("writeid\n");
+			if(RemoveBan(sHold, false))
+			{
+				afbasebase.TellAll("Admin "+AFArgs.User.pev.netname+" unbanned "+sHold, HUD_PRINTTALK);
+				afbasebase.Tell("Unbanned "+sHold, AFArgs.User, HUD_PRINTCONSOLE);
+				afbasebase.Log("Admin "+AFArgs.User.pev.netname+" unbanned "+sHold);
+			}else{
+				afbasebase.Tell("No such entry in ban list!", AFArgs.User, HUD_PRINTCONSOLE);
+			}
 		}else{
-			afbasebase.TellAll("Admin "+AFArgs.User.pev.netname+" unbanned "+sHold, HUD_PRINTTALK);
-			afbasebase.Tell("Unbanned "+sHold, AFArgs.User, HUD_PRINTCONSOLE);
-			afbasebase.Log("Admin "+AFArgs.User.pev.netname+" unbanned "+sHold);
-			g_EngineFuncs.ServerCommand("removeip "+sHold+"\n");
-			g_EngineFuncs.ServerCommand("writeip\n");
+			if(RemoveBan(sHold, true))
+			{
+				afbasebase.TellAll("Admin "+AFArgs.User.pev.netname+" unbanned "+sHold, HUD_PRINTTALK);
+				afbasebase.Tell("Unbanned "+sHold, AFArgs.User, HUD_PRINTCONSOLE);
+				afbasebase.Log("Admin "+AFArgs.User.pev.netname+" unbanned "+sHold);
+			}else{
+				afbasebase.Tell("No such entry in ban list!", AFArgs.User, HUD_PRINTCONSOLE);
+			}
 		}
 	}
 	
@@ -2790,9 +3375,24 @@ namespace AFBaseBase
 			return;
 		}
 		
-		afbasebase.Tell("Executed rcon: "+AFArgs.GetString(0), AFArgs.User, HUD_PRINTCONSOLE);
-		afbasebase.Log("Admin "+AFArgs.User.pev.netname+" executed rcon "+AFArgs.GetString(0));
-		g_EngineFuncs.ServerCommand(AFArgs.GetString(0)+"\n");
+		string sOut = AFArgs.GetString(0);
+		
+		array<string> parsed = sOut.Split(" ");
+		if(parsed.length >= 2)
+		{
+			sOut = parsed[0]+" \"";
+			for(uint i = 1; i < parsed.length; i++)
+				if(i > 1)
+					sOut += " "+parsed[i];
+				else
+					sOut += parsed[i];
+			
+			sOut += "\"";
+		}
+		
+		afbasebase.Tell("Executed rcon: "+sOut, AFArgs.User, HUD_PRINTCONSOLE);
+		afbasebase.Log("Admin "+AFArgs.User.pev.netname+" executed rcon "+sOut);
+		g_EngineFuncs.ServerCommand(sOut+"\n");
 	}
 
 	void kick(AFBaseArguments@ AFArgs)
@@ -3137,7 +3737,15 @@ namespace AFBaseBase
 			@AFBClass = cast<AFBaseClass@>(AFBase::g_afbExpansionList[afbKeys[i]]);
 			if(AFBClass !is null)
 			{
-				sVID = sSpace.SubString(0,iOffsetId-int(floor((1+i)/10)))+string(1+i)+"  ";
+				iOffsetId = iOffsetId-int(floor((1+i)/10));
+				if(iOffsetId < 1)
+					iOffsetId = 1;
+			
+				if(i >= 9) // 17.02.2018 -- fixes offset by one character when more than 10 extensions are in the server
+					sVID = sSpace.SubString(0, iOffsetId)+string(1+i)+" ";
+				else
+					sVID = sSpace.SubString(0, iOffsetId)+string(1+i)+"  ";
+			
 				sVSID = AFBClass.ShortName+sSpace.SubString(0,iLongestSID-AFBClass.ShortName.Length())+"  ";
 				sVNAME = AFBClass.ExpansionName+sSpace.SubString(0,iLongestName-AFBClass.ExpansionName.Length())+"  ";
 				sVAUTH = AFBClass.AuthorName+sSpace.SubString(0,iLongestAuthor-AFBClass.AuthorName.Length())+"  ";

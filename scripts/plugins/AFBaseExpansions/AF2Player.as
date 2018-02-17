@@ -37,7 +37,7 @@ class AF2Player : AFBaseClass
 		RegisterCommand("player_resurrect", "s!b", "(targets) <0/1 no respawn> - resurrect target(s)", ACCESS_G, @AF2Player::resurrect);
 		RegisterCommand("say !resurrect", "s!b", "(targets) <0/1 no respawn> - resurrect target(s)", ACCESS_G, @AF2Player::resurrect, false, true);
 		RegisterCommand("player_setmaxspeed", "sf", "(targets) (speed) - set target(s) max speed", ACCESS_G, @AF2Player::maxspeed);
-		RegisterCommand("player_keyvalue", "ss!sss", "(targets) (key) <value> <value> <value> - get/set target(s) keyvalue", ACCESS_G, @AF2Player::keyvalue);
+		RegisterCommand("player_keyvalue", "ss!sss", "(targets) (key) <value> <value> <value> - get/set target(s) keyvalue", ACCESS_F|ACCESS_G, @AF2Player::keyvalue);
 		RegisterCommand("player_nosolid", "s!b", "(targets) <0/1 mode> - set target(s) solidity, don't define mode to toggle", ACCESS_G, @AF2Player::nosolid);
 		RegisterCommand("say !nosolid", "s!i", "(targets) <0/1 mode> - set target(s) nosolid mode, don't define mode to toggle", ACCESS_G, @AF2Player::nosolid, false, true);
 		RegisterCommand("player_noclip", "s!i", "(targets) <0/1 mode> - set target(s) noclip mode, don't define mode to toggle", ACCESS_G, @AF2Player::noclip);
@@ -47,6 +47,12 @@ class AF2Player : AFBaseClass
 		RegisterCommand("player_ignite", "s", "(targets) - ignite target(s)", ACCESS_G, @AF2Player::ignite, true);
 		RegisterCommand("player_viewmode", "sb", "(targets) (0/1 firstperson/thirdperson) - set target(s) viewmode", ACCESS_G, @AF2Player::viewmode);
 		RegisterCommand("player_notarget", "s!i", "(targets) <0/1 mode> - set target(s) notarget, don't define mode to toggle", ACCESS_G, @AF2Player::notarget);
+		RegisterCommand("player_tag", "!ss", "<targets> <tag> - tag target, visible only for admins. Run without arguments to view list", ACCESS_G, @AF2Player::tagplayer, true);
+		RegisterCommand("say !tag", "!ss", "<targets> <tag> - tag target, visible only for admins. Run without arguments to view list", ACCESS_G, @AF2Player::tagplayer, true, true);
+		RegisterCommand("player_tagfix", "", "- refresh tags on your view, in case something fucks up", ACCESS_G, @AF2Player::tagfix, true);
+		RegisterCommand("say !tagfix", "", "- refresh tags on your view, in case something fucks up", ACCESS_G, @AF2Player::tagfix, true, true);
+		RegisterCommand("player_exec", "ss", "(targets) (\"command\") - execute command on client console", ACCESS_G, @AF2Player::cexec);
+		RegisterCommand("player_dumpinfo", "s!b", "(targets) <dirty 0/1> - dump player keyvalues into console", ACCESS_F|ACCESS_G, @AF2Player::dumpinfo);
 	
 		g_Hooks.RegisterHook(Hooks::Player::PlayerSpawn, @AF2Player::PlayerSpawn);
 		
@@ -61,6 +67,7 @@ class AF2Player : AFBaseClass
 	void MapInit()
 	{
 		AF2Player::g_playerModes.deleteAll(); // reset player data
+		AF2Player::tagListReset();
 		recheckPlayers();
 		g_SoundSystem.PrecacheSound("ambience/flameburst1.wav");
 		g_Game.PrecacheModel("sprites/flame2.spr");
@@ -116,17 +123,401 @@ class AF2Player : AFBaseClass
 	{
 		if(!AF2Player::g_playerModes.exists(pPlayer.entindex()))
 			AF2Player::g_playerModes[pPlayer.entindex()] = 0;
+			
+		string sId = AFBase::FormatSafe(AFBase::GetFixedSteamID(pPlayer));
+		string sTag = AF2Player::getTagData(sId);
+		if(sTag != "none")
+		{
+			AF2Player::tagTalk("[AF2P tagtalk] "+pPlayer.pev.netname+" (tag: "+sTag+") has connected");
+			AF2Player::tagViewAdd(pPlayer, sTag);
+			AF2Player::g_tagList[pPlayer.entindex()] = sTag;
+		}
 	}
 	
 	void ClientDisconnectEvent(CBasePlayer@ pPlayer)
 	{
 		if(AF2Player::g_playerModes.exists(pPlayer.entindex()))
 			AF2Player::g_playerModes.delete(pPlayer.entindex());
+			
+		if(AF2Player::g_tagList.exists(pPlayer.entindex()))
+		{
+			AF2Player::tagViewRemove(pPlayer);
+			AF2Player::g_tagList.delete(pPlayer.entindex());
+		}
 	}
 }
 
 namespace AF2Player
 {
+	void dumpinfo(AFBaseArguments@ AFArgs)
+	{
+		array<CBasePlayer@> pTargets;
+		bool bDirty = AFArgs.GetCount() >= 1 ? AFArgs.GetBool(0) : false;
+		if(AFBase::GetTargetPlayers(AFArgs.User, HUD_PRINTCONSOLE, AFArgs.GetString(0), TARGETS_NOIMMUNITYCHECK, pTargets))
+		{
+			CBasePlayer@ pTarget = null;
+			for(uint i = 0; i < pTargets.length(); i++)
+			{
+				@pTarget = pTargets[i];
+				dictionary stuff = bDirty ? AF2LegacyCode::reverseGetKeyvalue(pTarget) : AF2LegacyCode::prunezero(AF2LegacyCode::reverseGetKeyvalue(pTarget));
+				array<string> dkeys = stuff.getKeys();
+				af2player.Tell("Player \""+pTarget.pev.netname+"\" keyvalues:", AFArgs.User, HUD_PRINTCONSOLE);
+				for(uint j = 0; j < dkeys.length(); j++)
+				{
+					string sout = string(stuff[dkeys[j]]);
+					af2player.Tell("\""+dkeys[j]+"\" -> \""+sout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+				}
+				af2player.Tell("========", AFArgs.User, HUD_PRINTCONSOLE);
+			}
+		}
+	}
+
+	void cexec(AFBaseArguments@ AFArgs)
+	{
+		string sOut = AFArgs.GetString(1);
+		array<string> parsed = sOut.Split(" ");
+		if(parsed.length >= 2)
+		{
+			sOut = parsed[0]+" \"";
+			for(uint i = 1; i < parsed.length; i++)
+				if(i > 1)
+					sOut += " "+parsed[i];
+				else
+					sOut += parsed[i];
+			
+			sOut += "\"";
+		}
+		
+		array<CBasePlayer@> pTargets;
+		if(AFBase::GetTargetPlayers(AFArgs.User, HUD_PRINTCONSOLE, AFArgs.GetString(0), 0, pTargets))
+		{
+			CBasePlayer@ pTarget = null;
+			for(uint i = 0; i < pTargets.length(); i++)
+			{
+				@pTarget = pTargets[i];
+				NetworkMessage message(MSG_ONE_UNRELIABLE, NetworkMessages::NetworkMessageType(9), pTarget.edict());
+					message.WriteString(sOut);
+				message.End();
+				
+				af2player.Tell("Executed on "+pTarget.pev.netname+": "+sOut, AFArgs.User, HUD_PRINTCONSOLE);
+			}
+		}
+	}
+
+	void tagfix(AFBaseArguments@ AFArgs)
+	{
+		HUD targetHud = AFArgs.IsChat ? HUD_PRINTTALK : HUD_PRINTCONSOLE;
+		tagRefreshView(AFArgs.User);
+		af2player.Tell("Refreshed tag view", AFArgs.User, targetHud);
+	}
+
+	void tagplayer(AFBaseArguments@ AFArgs)
+	{
+		HUD targetHud = AFArgs.IsChat ? HUD_PRINTTALK : HUD_PRINTCONSOLE;
+		
+		if(AFArgs.GetCount() == 0)
+		{
+			af2player.Tell("Printed list of tags to console", AFArgs.User, targetHud);
+			af2player.Tell("Available tags:", AFArgs.User, HUD_PRINTCONSOLE);
+			for(uint i = 0; i < g_validTags.length(); i++)
+				af2player.Tell(g_validTags[i], AFArgs.User, HUD_PRINTCONSOLE);
+				
+			return;
+		}
+		else if(AFArgs.GetCount() == 1)
+		{
+			af2player.Tell("Missing arguments! Usage: <targets> <tag>", AFArgs.User, targetHud);
+			return;
+		}
+		
+		string sTag = AFArgs.GetString(1);
+		
+		if(g_validTags.find(sTag) <= -1 && sTag != "off")
+		{
+			af2player.Tell("Invalid tag! Run without arguments to view list of tags", AFArgs.User, targetHud);
+			return;
+		}
+		
+		array<CBasePlayer@> pTargets;
+		if(AFBase::GetTargetPlayers(AFArgs.User, targetHud, AFArgs.GetString(0), 0, pTargets))
+		{
+			CBasePlayer@ pTarget = null;
+			for(uint i = 0; i < pTargets.length(); i++)
+			{
+				@pTarget = pTargets[i];
+				if(sTag == "off")
+				{
+					if(g_tagList.exists(pTarget.entindex()))
+					{
+						removeTag(pTarget);
+						tagTalk("[AF2P tagtalk] Admin "+AFArgs.User.pev.netname+" removed tag from "+pTarget.pev.netname);
+						af2player.Tell("Removed tag from "+pTarget.pev.netname, AFArgs.User, targetHud);
+					}else{
+						af2player.Tell("Can't remove: no tag!", AFArgs.User, targetHud);
+					}
+				}else{
+					addTag(pTarget, sTag);
+					tagTalk("[AF2P tagtalk] Admin "+AFArgs.User.pev.netname+" set tag "+sTag+" to "+pTarget.pev.netname);
+					af2player.Tell("Set tag "+sTag+" to "+pTarget.pev.netname, AFArgs.User, targetHud);
+				}
+			}
+		}
+	}
+
+	dictionary g_tagList;
+	string g_tagPath = "sprites/zode/";
+	string g_tagFilePath = "scripts/plugins/store/AFBaseTags.txt";
+	array<string> g_validTags = {
+	"blocker",
+	"rusher",
+	"suspect",
+	"troll"
+	};
+	
+	void reloadPlayerTags()
+	{
+		g_tagList.deleteAll();
+		CBasePlayer@ pSearch;
+		for(int i = 1; i < g_Engine.maxClients; i++)
+		{
+			@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
+			if(pSearch !is null)
+			{
+				string sId = AFBase::FormatSafe(AFBase::GetFixedSteamID(pSearch));
+				string sTag = getTagData(sId);
+				if(sTag == "none")
+					continue;
+				
+				g_tagList[pSearch.entindex()] = sTag;
+			}
+		}
+		
+		@pSearch = null;
+		for(int i = 1; i <= g_Engine.maxClients; i++)
+		{
+			@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
+			if(pSearch !is null)
+			{
+				if(AFBase::CheckAccess(pSearch, ACCESS_G))
+				{
+					tagRefreshView(pSearch);
+				}
+			}
+		}
+	}
+	
+	void tagRefreshView(CBasePlayer@ pView)
+	{
+		if(pView is null)
+			return;
+			
+		if(pView !is null && AFBase::CheckAccess(pView, ACCESS_G))
+		{
+			CBasePlayer@ pSearch;
+			for(int i = 1; i <= g_Engine.maxClients; i++)
+			{
+				@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
+				if(@pSearch !is null)
+				{
+					if(g_tagList.exists(pSearch.entindex()))
+					{
+						string sSprite = g_tagPath+string(g_tagList[pSearch.entindex()])+".spr";
+						
+						NetworkMessage killmessage(MSG_ONE_UNRELIABLE, NetworkMessages::SVC_TEMPENTITY, pView.edict());
+							killmessage.WriteByte(TE_KILLPLAYERATTACHMENTS);
+							killmessage.WriteByte(pSearch.entindex());
+						killmessage.End();
+					
+						NetworkMessage message(MSG_ONE_UNRELIABLE, NetworkMessages::SVC_TEMPENTITY, pView.edict());
+							message.WriteByte(TE_PLAYERATTACHMENT);
+							message.WriteByte(pSearch.entindex());
+							message.WriteCoord(51.0f);
+							message.WriteShort(g_EngineFuncs.ModelIndex(sSprite));
+							message.WriteShort(32767);
+						message.End();
+					}
+				}
+			}
+		}
+	}
+	
+	void tagViewAdd(CBasePlayer@ pTarg, string sTag)
+	{
+		string sSprite = g_tagPath+sTag+".spr";
+		CBasePlayer@ pSearch;
+		for(int i = 1; i <= g_Engine.maxClients; i++)
+		{
+			@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
+			if(pSearch !is null)
+			{
+				if(AFBase::CheckAccess(pSearch, ACCESS_G))
+				{
+					NetworkMessage message(MSG_ONE_UNRELIABLE, NetworkMessages::SVC_TEMPENTITY, pSearch.edict());
+						message.WriteByte(TE_PLAYERATTACHMENT);
+						message.WriteByte(pTarg.entindex());
+						message.WriteCoord(51.0f);
+						message.WriteShort(g_EngineFuncs.ModelIndex(sSprite));
+						message.WriteShort(32767);
+					message.End();
+				}
+			}
+		}
+	}
+	
+	void tagViewRemove(CBasePlayer@ pTarg)
+	{
+		CBasePlayer@ pSearch;
+		for(int i = 1; i <= g_Engine.maxClients; i++)
+		{
+			@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
+			if(pSearch !is null)
+			{
+				if(AFBase::CheckAccess(pSearch, ACCESS_G))
+				{
+					NetworkMessage message(MSG_ONE_UNRELIABLE, NetworkMessages::SVC_TEMPENTITY, pSearch.edict());
+						message.WriteByte(TE_KILLPLAYERATTACHMENTS);
+						message.WriteByte(pTarg.entindex());
+					message.End();
+				}
+			}
+		}
+	}
+	
+	void tagListReset()
+	{
+		g_tagList.deleteAll();
+		for(uint i = 0; i < g_validTags.length(); i++)
+		{
+			g_Game.PrecacheModel(g_tagPath+g_validTags[i]+".spr");
+		}
+	}
+	
+	void tagTalk(string sTalk)
+	{
+		CBasePlayer@ pSearch;
+		for(int i = 1; i <= g_Engine.maxClients; i++)
+		{
+			@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
+			if(pSearch !is null)
+			{
+				if(AFBase::CheckAccess(pSearch, ACCESS_G))
+				{
+					g_PlayerFuncs.ClientPrint(pSearch, HUD_PRINTTALK, sTalk+"\n");
+				}
+			}
+		}
+	}
+	
+	void addTag(CBasePlayer@ pTarget, string sTag)
+	{
+		if(g_tagList.exists(pTarget.entindex())) //reset view basically
+			tagViewRemove(pTarget);
+		
+		setTagData(pTarget, sTag);
+		tagViewAdd(pTarget, sTag);
+	}
+	
+	void removeTag(CBasePlayer@ pTarget)
+	{
+		g_tagList.delete(pTarget.entindex());
+		setTagData(pTarget, "off");
+		tagViewRemove(pTarget);
+	}
+	
+	bool setTagData(CBasePlayer@ pTarget, string sTag)
+	{
+		string usrId = AFBase::FormatSafe(AFBase::GetFixedSteamID(pTarget));
+		File@ file = g_FileSystem.OpenFile(g_tagFilePath, OpenFile::READ);
+		dictionary lTags;
+		if(file !is null && file.IsOpen())
+		{
+			while(!file.EOFReached())
+			{
+				string sLine;
+				file.ReadLine(sLine);
+				string sFix = sLine.SubString(sLine.Length()-1,1);
+				if(sFix == " " || sFix == "\n" || sFix == "\r" || sFix == "\t")
+					sLine = sLine.SubString(0, sLine.Length()-1);
+				
+				if(sLine.SubString(0,1) == "#" || sLine.IsEmpty())
+					continue;
+				
+				array<string> parsed = sLine.Split(" ");
+				
+				//effing linux
+				if(parsed[1].SubString(parsed[1].Length()-1,1) == " " || parsed[1].SubString(parsed[1].Length()-1,1) == "\n" || parsed[1].SubString(parsed[1].Length()-1,1) == "\r" || parsed[1].SubString(parsed[1].Length()-1,1) == "\t")
+					parsed[1] = parsed[1].SubString(0, parsed[1].Length()-1);
+				
+				lTags[parsed[0]] = parsed[1];
+			}
+			file.Close();
+		}else{
+			af2player.Log("Installation error: cannot locate tag file");
+			return false;
+		}
+		
+		if(sTag == "off" && lTags.exists(usrId))
+		{
+			lTags.delete(usrId);
+		}else{
+			lTags[usrId] = sTag;
+			g_tagList[pTarget.entindex()] = sTag;
+		}
+		
+		@file = g_FileSystem.OpenFile(g_tagFilePath, OpenFile::WRITE);
+		if(file !is null)
+		{
+			array<string> sIds = lTags.getKeys();
+			for(uint i = 0; i < sIds.length(); i++)
+			{
+				file.Write(sIds[i]+" "+string(lTags[sIds[i]])+"\n");
+			}
+			
+			file.Close();
+			return true;
+		}else{
+			af2player.Log("Failed to write tag file");
+			return false;
+		}
+	}
+	
+	string getTagData(string sId)
+	{
+		
+		File@ file = g_FileSystem.OpenFile(g_tagFilePath, OpenFile::READ);
+		if(file !is null && file.IsOpen())
+		{
+			string sReturn = "none";
+			while(!file.EOFReached())
+			{
+				string sLine;
+				file.ReadLine(sLine);
+				
+				string sFix = sLine.SubString(sLine.Length()-1,1);
+				if(sFix == " " || sFix == "\n" || sFix == "\r" || sFix == "\t")
+					sLine = sLine.SubString(0, sLine.Length()-1);
+				
+				if(sLine.SubString(0,1) == "#" || sLine.IsEmpty())
+					continue;
+					
+				array<string> parsed = sLine.Split(" ");
+					
+				//effing linux
+				if(parsed[1].SubString(parsed[1].Length()-1,1) == " " || parsed[1].SubString(parsed[1].Length()-1,1) == "\n" || parsed[1].SubString(parsed[1].Length()-1,1) == "\r" || parsed[1].SubString(parsed[1].Length()-1,1) == "\t")
+					parsed[1] = parsed[1].SubString(0, parsed[1].Length()-1);
+					
+				if(parsed[0] == sId)
+					sReturn = parsed[1];
+			}
+			
+			file.Close();
+			return sReturn;
+		}else{
+			af2player.Log("Installation error: cannot locate tag file");
+			return "none";
+		}
+	}
+
 	CScheduledFunction@ g_playerThink = null;
 
 	void playerThink()

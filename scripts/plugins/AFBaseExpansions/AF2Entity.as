@@ -35,27 +35,43 @@ class AF2Entity : AFBaseClass
 		RegisterCommand("ent_item", "s", "(weapon_/ammo_/item_ name) - Spawn weapon/ammo/item at your location", ACCESS_F, @AF2Entity::item);
 		RegisterCommand("ent_worldcopy", "f!vbbb", "(speed) <angle vector> <0/1 reverse> <0/1 xaxis> <0/1 yaxis> - Create worldcopy", ACCESS_F, @AF2Entity::worldcopy);
 		RegisterCommand("ent_worldremove", "", "- Remove all worldcopies", ACCESS_F, @AF2Entity::worldremove);
+		RegisterCommand("ent_mover", "!i", "<0/1 mode> - weapon_entmover, don't define mode to toggle", ACCESS_F, @AF2Entity::entmover, true);
+		RegisterCommand("ent_dumpinfo", "!bs", "<dirty 0/1> <targetname> - dump entity keyvalues into console, if no targetname given it will attempt to trace forwards", ACCESS_F, @AF2Entity::dumpinfo);
+		
+		g_Hooks.RegisterHook(Hooks::Player::PlayerPreThink, @AF2Entity::PlayerPreThink);
+		g_Hooks.RegisterHook(Hooks::Player::PlayerSpawn, @AF2Entity::PlayerSpawn);
 		
 		AF2Entity::g_entMoving.deleteAll();
+		AF2Entity::g_entWeapon.deleteAll();
 		if(AF2Entity::g_entThink !is null)
 			g_Scheduler.RemoveTimer(AF2Entity::g_entThink);
 	
-		@AF2Entity::g_entThink = g_Scheduler.SetInterval("entThink", 0.1f+Math.RandomFloat(0.01f, 0.09f));
+		@AF2Entity::g_entThink = g_Scheduler.SetInterval("entThink", 0.075f+Math.RandomFloat(0.0f, 0.05f));
 	}
 	
 	void MapInit()
 	{
 		AF2Entity::g_entMoving.deleteAll();
+		AF2Entity::g_entWeapon.deleteAll();
 		if(AF2Entity::g_entThink !is null)
 			g_Scheduler.RemoveTimer(AF2Entity::g_entThink);
 	
-		@AF2Entity::g_entThink = g_Scheduler.SetInterval("entThink", 0.1f+Math.RandomFloat(0.01f, 0.09f));
+		@AF2Entity::g_entThink = g_Scheduler.SetInterval("entThink", 0.075f+Math.RandomFloat(0.0f, 0.05f));
+		
+		g_Game.PrecacheModel("models/zode/v_entmover.mdl");
+		g_Game.PrecacheModel("models/zode/p_entmover.mdl");
+		g_Game.PrecacheModel("sprites/zbeam4.spr");
+		g_Game.PrecacheModel("sprites/zerogxplode.spr");
+		g_SoundSystem.PrecacheSound("tfc/items/inv3.wav");
 	}
 	
 	void PlayerDisconnectEvent(CBasePlayer@ pUser)
 	{
 		if(AF2Entity::g_entMoving.exists(pUser.entindex()))
 			AF2Entity::g_entMoving.delete(pUser.entindex());
+			
+		if(AF2Entity::g_entWeapon.exists(pUser.entindex()))
+			AF2Entity::g_entWeapon.delete(pUser.entindex());
 	}
 	
 	void StopEvent()
@@ -86,6 +102,11 @@ class AF2Entity : AFBaseClass
 						}
 					}
 				}
+				
+				if(AF2Entity::g_entWeapon.exists(pSearch.entindex()))
+				{
+					AF2Entity::weaponmover(pSearch, false, false);
+				}
 			}
 		}
 		
@@ -94,6 +115,7 @@ class AF2Entity : AFBaseClass
 		SendMessage("AF2P", "RecheckPlayer", dData);
 		
 		AF2Entity::g_entMoving.deleteAll();
+		AF2Entity::g_entWeapon.deleteAll();
 		if(AF2Entity::g_entThink !is null)
 			g_Scheduler.RemoveTimer(AF2Entity::g_entThink);
 	}
@@ -103,14 +125,340 @@ class AF2Entity : AFBaseClass
 		if(AF2Entity::g_entThink !is null)
 			g_Scheduler.RemoveTimer(AF2Entity::g_entThink);
 	
-		@AF2Entity::g_entThink = g_Scheduler.SetInterval("entThink", 0.1f+Math.RandomFloat(0.01f, 0.09f));
+		@AF2Entity::g_entThink = g_Scheduler.SetInterval("entThink", 0.075f+Math.RandomFloat(0.0f, 0.05f));
 	}
 }
 
 namespace AF2Entity
 {
+	void dumpinfo(AFBaseArguments@ AFArgs)
+	{
+		string sTarget = AFArgs.GetCount() >= 2 ? AFArgs.GetString(1) : "";
+		bool bDirty = AFArgs.GetCount() >= 1 ? AFArgs.GetBool(0) : false;
+		if(sTarget == "")
+		{
+			CBaseEntity@ pEntity = g_Utility.FindEntityForward(AFArgs.User, 4096);
+			if(pEntity is null)
+			{
+				af2entity.Tell("No entity in front (4096 units)!", AFArgs.User, HUD_PRINTCONSOLE);
+				return;
+			}
+			
+			if(pEntity.IsPlayer())
+			{
+				af2entity.Tell("Can't dump: target is player!", AFArgs.User, HUD_PRINTCONSOLE);
+				return;
+			}
+			
+			dictionary stuff = bDirty ? AF2LegacyCode::reverseGetKeyvalue(pEntity) : AF2LegacyCode::prunezero(AF2LegacyCode::reverseGetKeyvalue(pEntity));
+			array<string> dkeys = stuff.getKeys();
+			af2entity.Tell("Entity keyvalues:", AFArgs.User, HUD_PRINTCONSOLE);
+			for(uint i = 0; i < dkeys.length(); i++)
+			{
+				string sout = string(stuff[dkeys[i]]);
+				af2entity.Tell("\""+dkeys[i]+"\" -> \""+sout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+			}
+		}else{
+			int iC = 0;
+			CBaseEntity@ pEntity = null;
+			while((@pEntity = g_EntityFuncs.FindEntityByTargetname(pEntity, sTarget)) !is null)
+			{
+				dictionary stuff = AF2LegacyCode::reverseGetKeyvalue(pEntity);
+				array<string> dkeys = stuff.getKeys();
+				af2entity.Tell("========\nEntity keyvalues:\n========", AFArgs.User, HUD_PRINTCONSOLE);
+				for(uint i = 0; i < dkeys.length(); i++)
+				{
+					string sout = string(stuff[dkeys[i]]);
+					af2entity.Tell("\""+dkeys[i]+"\" -> \""+sout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+				}
+				af2entity.Tell("========", AFArgs.User, HUD_PRINTCONSOLE);
+				
+				iC++;
+			}
+			
+			if(iC == 0)
+				af2entity.Tell("No entity with that name!", AFArgs.User, HUD_PRINTCONSOLE);
+		}
+	}
+	
 	dictionary g_entMoving;
 	CScheduledFunction@ g_entThink = null;
+	dictionary g_entWeapon;
+	
+	HookReturnCode PlayerSpawn(CBasePlayer@ pPlayer)
+	{
+		if(g_entWeapon.exists(pPlayer.entindex()))
+			weaponmover(pPlayer, false, true);
+		
+		return HOOK_CONTINUE;
+	}
+	
+	HookReturnCode PlayerPreThink(CBasePlayer@ pPlayer, uint &out magicnumbers)
+	{
+		if(af2entity.Running)
+		{
+			if(g_entWeapon.exists(pPlayer.entindex()))
+			{
+				bool bUsing = g_entMoving.exists(pPlayer.entindex()) ? true : false;
+				EntMoverData@ emd = cast<EntMoverData@>(g_entWeapon[pPlayer.entindex()]);
+				
+				if(pPlayer.pev.button & IN_ATTACK > 0)
+				{
+					pPlayer.pev.button &= ~IN_ATTACK;
+					
+					if(!bUsing && !emd.bHolding)
+					{
+						emd.bHolding = true;
+						emd.vColor = Vector(Math.RandomLong(0, 255),Math.RandomLong(0, 255),Math.RandomLong(0, 255));
+						g_entWeapon[pPlayer.entindex()] = emd;
+						g_EngineFuncs.MakeVectors(pPlayer.pev.v_angle);
+						Vector vecStart = pPlayer.GetGunPosition();
+						TraceResult tr;
+						g_Utility.TraceLine(vecStart, vecStart+g_Engine.v_forward*4096, dont_ignore_monsters, pPlayer.edict(), tr);
+						CBaseEntity@ pEntity = g_EntityFuncs.Instance(tr.pHit);
+						if(pEntity is null || pEntity.pev.classname == "worldspawn")
+						{
+							af2entity.Tell("No entity in front (4096 units)!", pPlayer, HUD_PRINTTALK);
+							return HOOK_CONTINUE;
+						}
+						
+						CustomKeyvalues@ pCustom = pEntity.GetCustomKeyvalues();
+						if(pCustom.GetKeyvalue("$i_afbentgrab").GetInteger() == 1)
+						{
+							af2entity.Tell("Can't grab: entity already being grabbed!", pPlayer, HUD_PRINTTALK);
+							return HOOK_CONTINUE;
+						}
+						g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_WEAPON, "tfc/items/inv3.wav", 1.0f, 1.0f, SND_FORCE_LOOP, PITCH_NORM);
+						
+						pushEntRenderSettings(pEntity);
+						pCustom.SetKeyvalue("$i_afbentgrab", 1);
+						//pEntity.pev.rendermode = 1;
+						//pEntity.pev.renderfx = 0;
+						//pEntity.pev.rendercolor = Vector(0, 255, 0);
+						//pEntity.pev.renderamt = 88;
+						Vector vecOffset = tr.vecEndPos;
+						float fDist = (vecOffset - vecStart).Length();
+						pCustom.SetKeyvalue("$v_afbentofs", vecOffset);
+						g_entMoving[pPlayer.entindex()] = Vector(pEntity.entindex(), fDist, 0);
+						if(pEntity.IsPlayer())
+						{
+							if(pEntity.pev.movetype != MOVETYPE_NOCLIP)
+								pEntity.pev.movetype = MOVETYPE_NOCLIP;
+								
+							if(pEntity.pev.flags & FL_FROZEN == 0)
+								pEntity.pev.flags |= FL_FROZEN;
+						}
+					}
+				}else{
+					if(bUsing && emd.bHolding)
+					{
+						emd.bHolding = false;
+						g_entWeapon[pPlayer.entindex()] = emd;
+						g_SoundSystem.StopSound(pPlayer.edict(), CHAN_WEAPON, "tfc/items/inv3.wav", false);
+						Vector grabIndex = Vector(g_entMoving[pPlayer.entindex()]);
+						CBaseEntity@ pEntity = g_EntityFuncs.Instance(int(grabIndex.x));
+						if(pEntity !is null)
+						{
+							popEntRenderSettings(pEntity);
+							CustomKeyvalues@ pCustom = pEntity.GetCustomKeyvalues();
+							pCustom.SetKeyvalue("$i_afbentgrab", 0);
+							if(pEntity.IsPlayer())
+							{
+								if(pEntity.pev.movetype != MOVETYPE_WALK)
+									pEntity.pev.movetype = MOVETYPE_WALK;
+								
+								if(pEntity.pev.flags & FL_FROZEN > 0)
+									pEntity.pev.flags &= ~FL_FROZEN;
+								
+								dictionary dData;
+								EHandle ePlayer = cast<CBasePlayer@>(pEntity);
+								dData["player"] = ePlayer;
+								af2entity.SendMessage("AF2P", "RecheckPlayer", dData);
+							}
+						}
+						
+						g_entMoving.delete(pPlayer.entindex());
+					}else if(!bUsing && emd.bHolding)
+					{
+						emd.bHolding = false;
+						g_entWeapon[pPlayer.entindex()] = emd;
+					}
+				}
+				
+				if(pPlayer.pev.button & IN_ATTACK2 > 0)
+				{
+					pPlayer.pev.button &= ~IN_ATTACK2;
+					
+					if(!emd.bHolding2)
+					{
+						emd.bHolding2 = true;
+						g_entWeapon[pPlayer.entindex()] = emd;
+						
+						g_EngineFuncs.MakeVectors(pPlayer.pev.v_angle);
+						Vector vecStart = pPlayer.GetGunPosition();
+						TraceResult tr;
+						g_Utility.TraceLine(vecStart, vecStart+g_Engine.v_forward*4096, dont_ignore_monsters, pPlayer.edict(), tr);
+						CBaseEntity@ pEntity = g_EntityFuncs.Instance(tr.pHit);
+						if(pEntity is null || pEntity.pev.classname == "worldspawn")
+						{
+							af2entity.Tell("No entity in front (4096 units)!", pPlayer, HUD_PRINTTALK);
+							return HOOK_CONTINUE;
+						}
+						
+						if(pEntity.IsPlayer())
+						{
+							af2entity.Tell("Can't kill: target is player!", pPlayer, HUD_PRINTTALK);
+							return HOOK_CONTINUE;
+						}
+						
+						NetworkMessage msg(MSG_BROADCAST, NetworkMessages::SVC_TEMPENTITY, null);
+							msg.WriteByte(TE_BEAMPOINTS);
+							msg.WriteCoord(vecStart.x);
+							msg.WriteCoord(vecStart.y);
+							msg.WriteCoord(vecStart.z-8);
+							msg.WriteCoord(tr.vecEndPos.x);
+							msg.WriteCoord(tr.vecEndPos.y);
+							msg.WriteCoord(tr.vecEndPos.z);
+							msg.WriteShort(g_EngineFuncs.ModelIndex("sprites/zbeam4.spr"));
+							msg.WriteByte(0);
+							msg.WriteByte(0);
+							msg.WriteByte(4);
+							msg.WriteByte(8);
+							msg.WriteByte(32);
+							msg.WriteByte(255);
+							msg.WriteByte(0);
+							msg.WriteByte(0);
+							msg.WriteByte(255);
+							msg.WriteByte(0);
+						msg.End();
+						
+						NetworkMessage msg2(MSG_BROADCAST, NetworkMessages::SVC_TEMPENTITY, null);
+							msg2.WriteByte(TE_EXPLOSION);
+							msg2.WriteCoord(tr.vecEndPos.x);
+							msg2.WriteCoord(tr.vecEndPos.y);
+							msg2.WriteCoord(tr.vecEndPos.z);
+							msg2.WriteShort(g_EngineFuncs.ModelIndex("sprites/zerogxplode.spr"));
+							msg2.WriteByte(10);
+							msg2.WriteByte(15);
+							msg2.WriteByte(0);
+						msg2.End();
+						
+						g_EntityFuncs.Remove(pEntity);
+					}
+				}else{
+					if(emd.bHolding2)
+					{
+						emd.bHolding2 = false;
+						g_entWeapon[pPlayer.entindex()] = emd;
+					}
+				}
+				
+				if(pPlayer.pev.button & IN_ALT1 > 0)
+				{
+					pPlayer.pev.button &= ~IN_ALT1;
+				}
+				
+				if(pPlayer.pev.button & IN_RELOAD > 0)
+				{
+					pPlayer.pev.button &= ~IN_RELOAD;
+				}
+			}
+		}
+		
+		return HOOK_CONTINUE;
+	}
+	
+	class EntMoverData
+	{
+		string weaponModel = "models/zode/p_entmover.mdl";
+		string viewModel = "models/zode/v_entmover.mdl";
+		bool bHolding = false;
+		bool bHolding2 = false;
+		Vector vColor = Vector(0,0,0);
+	}
+	
+	void weaponmover(CBasePlayer@ pPlayer, bool bMode, bool bReset)
+	{
+		if(bMode)
+		{
+			EntMoverData emd;
+			emd.weaponModel = pPlayer.pev.weaponmodel;
+			emd.viewModel = pPlayer.pev.viewmodel;
+			pPlayer.pev.weaponmodel = "models/zode/p_entmover.mdl";
+			pPlayer.pev.viewmodel = "models/zode/v_entmover.mdl";
+			pPlayer.m_iHideHUD = 1;
+			pPlayer.m_iEffectBlockWeapons = 1;
+			if(pPlayer.pev.flags & FL_NOWEAPONS == 0)
+				pPlayer.pev.flags |= FL_NOWEAPONS;
+			if(pPlayer.HasWeapons())
+			{
+				CBasePlayerWeapon@ activeItem = cast<CBasePlayerWeapon@>(pPlayer.m_hActiveItem.GetEntity());
+				activeItem.SendWeaponAnim(0,0,0);
+				activeItem.m_flNextPrimaryAttack = 43200.0f;
+				activeItem.m_flNextSecondaryAttack = 43200.0f;
+				activeItem.m_flNextTertiaryAttack = 43200.0f;
+				activeItem.m_flTimeWeaponIdle = 43200.0f;
+			}
+			
+			g_entWeapon[pPlayer.entindex()] = emd;
+			
+		}else{
+			EntMoverData@ emd = cast<EntMoverData@>(g_entWeapon[pPlayer.entindex()]);
+			if(!bReset)
+			{
+				pPlayer.pev.weaponmodel = emd.weaponModel;
+				pPlayer.pev.viewmodel = emd.viewModel;
+			}
+			pPlayer.m_iHideHUD = 0;
+			pPlayer.m_iEffectBlockWeapons = 0;
+			if(pPlayer.pev.flags & FL_NOWEAPONS > 0)
+			pPlayer.pev.flags &= ~FL_NOWEAPONS;
+			if(pPlayer.HasWeapons())
+			{
+				CBasePlayerWeapon@ activeItem = cast<CBasePlayerWeapon@>(pPlayer.m_hActiveItem.GetEntity());
+				activeItem.SendWeaponAnim(0,0,0);
+				activeItem.m_flNextPrimaryAttack = 0;
+				activeItem.m_flNextSecondaryAttack = 0;
+				activeItem.m_flNextTertiaryAttack = 0;
+				activeItem.m_flTimeWeaponIdle = 0;
+			}
+			g_entWeapon.delete(pPlayer.entindex());
+		}
+	}
+	
+	void entmover(AFBaseArguments@ AFArgs)
+	{
+		int iMode = AFArgs.GetCount() >= 1 ? AFArgs.GetInt(0) : -1;
+		bool bIsOn = g_entWeapon.exists(AFArgs.User.entindex());
+		if(iMode == -1)
+		{
+			if(bIsOn)
+			{
+				weaponmover(AFArgs.User, false, false);
+			}else{
+				weaponmover(AFArgs.User, true, false);
+			}
+			
+			af2entity.Tell("Toggled entmover", AFArgs.User, HUD_PRINTCONSOLE);
+		}else if(iMode == 1)
+		{
+			if(!bIsOn)
+			{
+				weaponmover(AFArgs.User, true, false);
+				af2entity.Tell("Gave entmover", AFArgs.User, HUD_PRINTCONSOLE);
+			}else{
+				af2entity.Tell("Can't give entmover: entmover is already out", AFArgs.User, HUD_PRINTCONSOLE);
+			}
+		}else{
+			if(bIsOn)
+			{
+				weaponmover(AFArgs.User, false, false);
+				af2entity.Tell("Removed entmover", AFArgs.User, HUD_PRINTCONSOLE);
+			}else{
+				af2entity.Tell("Can't remove entmover: entmover is not out", AFArgs.User, HUD_PRINTCONSOLE);
+			}
+		}
+	}
 	
 	void worldcopy(AFBaseArguments@ AFArgs)
 	{
@@ -251,6 +599,34 @@ namespace AF2Entity
 						pCustom.SetKeyvalue("$v_afbentofs", vecNewEnd);
 						if(pEntity.IsPlayer())
 							pEntity.pev.velocity = Vector(0,0,0);
+							
+						if(g_entWeapon.exists(pSearch.entindex()))
+						{
+							EntMoverData@ emd = cast<EntMoverData@>(g_entWeapon[pSearch.entindex()]);
+							if(emd.bHolding)
+							{
+								NetworkMessage msg(MSG_BROADCAST, NetworkMessages::SVC_TEMPENTITY, null);
+									msg.WriteByte(TE_BEAMPOINTS);
+									msg.WriteCoord(vecSrc.x);
+									msg.WriteCoord(vecSrc.y);
+									msg.WriteCoord(vecSrc.z-8);
+									msg.WriteCoord(vecNewEnd.x);
+									msg.WriteCoord(vecNewEnd.y);
+									msg.WriteCoord(vecNewEnd.z);
+									msg.WriteShort(g_EngineFuncs.ModelIndex("sprites/zbeam4.spr"));
+									msg.WriteByte(0);
+									msg.WriteByte(0);
+									msg.WriteByte(2);
+									msg.WriteByte(32);
+									msg.WriteByte(0);
+									msg.WriteByte(int(emd.vColor.x));
+									msg.WriteByte(int(emd.vColor.y));
+									msg.WriteByte(int(emd.vColor.z));
+									msg.WriteByte(255);
+									msg.WriteByte(0);
+								msg.End();
+							}
+						}
 					}
 				}
 			}
@@ -287,117 +663,17 @@ namespace AF2Entity
 		}
 		
 		string sClass = pEntity.pev.classname;
-		dictionary dKeyvalues;
-		string sHold = pEntity.pev.model;
-		if(sHold.Length() > 0)
-			dKeyvalues["model"] = sHold;
-			
-		sHold = pEntity.pev.skin;
-		if(sHold.Length() > 0)
-			dKeyvalues["skin"] = sHold;
-			
-		sHold = pEntity.pev.body;
-		if(sHold.Length() > 0)
-			dKeyvalues["body"] = sHold;
-			
-		sHold = pEntity.pev.effects;
-		if(sHold.Length() > 0)
-			dKeyvalues["effects"] = sHold;
-			
-		sHold = pEntity.pev.gravity;
-		if(sHold.Length() > 0)
-			dKeyvalues["gravity"] = sHold;
-			
-		sHold = pEntity.pev.friction;
-		if(sHold.Length() > 0)
-			dKeyvalues["friction"] = sHold;
-			
-		sHold = pEntity.pev.scale;
-		if(sHold.Length() > 0)
-			dKeyvalues["scale"] = sHold;
-			
-		sHold = pEntity.pev.rendermode;
-		if(sHold.Length() > 0)
-			dKeyvalues["rendermode"] = sHold;
-			
-		sHold = pEntity.pev.renderamt;
-		if(sHold.Length() > 0)
-			dKeyvalues["renderamt"] = sHold;
-			
-		sHold = AF2LegacyCode::sstring(pEntity.pev.rendercolor);
-		if(sHold.Length() > 0)
-			dKeyvalues["rendercolor"] = sHold;
-			
-		sHold = pEntity.pev.renderfx;
-		if(sHold.Length() > 0)
-			dKeyvalues["renderfx"] = sHold;
-			
-		sHold = pEntity.pev.health;
-		if(sHold.Length() > 0)
-			dKeyvalues["health"] = sHold;
+		dictionary dKeyvalues = AF2LegacyCode::cleancopy(AF2LegacyCode::reverseGetKeyvalue(pEntity));
 		
-		sHold = pEntity.pev.max_health;
-		if(sHold.Length() > 0)
-			dKeyvalues["max_health"] = sHold;
-			
-		sHold = pEntity.pev.weapons;
-		if(sHold.Length() > 0)
-			dKeyvalues["weapons"] = sHold;
-			
-		sHold = pEntity.pev.spawnflags;
-		if(sHold.Length() > 0)
-			dKeyvalues["spawnflags"] = sHold;
-			
-		sHold = pEntity.pev.target;
-		if(sHold.Length() > 0)
-			dKeyvalues["target"] = sHold;
-			
-		sHold = pEntity.pev.targetname;
-		if(sHold.Length() > 0)
-			dKeyvalues["targetname"] = sHold;
-			
-		sHold = pEntity.pev.dmg;
-		if(sHold.Length() > 0)
-			dKeyvalues["dmg"] = sHold;
-			
-		sHold = pEntity.pev.netname;
-		if(sHold.Length() > 0)
-			dKeyvalues["netname"] = sHold;
-			
-		sHold = pEntity.pev.message;
-		if(sHold.Length() > 0)
-			dKeyvalues["message"] = sHold;
-			
-		sHold = pEntity.pev.noise;
-		if(sHold.Length() > 0)
-			dKeyvalues["noise"] = sHold;
-			
-		sHold = pEntity.pev.noise1;
-		if(sHold.Length() > 0)
-			dKeyvalues["noise1"] = sHold;
-			
-		sHold = pEntity.pev.noise2;
-		if(sHold.Length() > 0)
-			dKeyvalues["noise2"] = sHold;
-			
-		sHold = pEntity.pev.noise3;
-		if(sHold.Length() > 0)
-			dKeyvalues["noise3"] = sHold;
-			
-		sHold = pEntity.pev.speed;
-		if(sHold.Length() > 0)
-			dKeyvalues["speed"] = sHold;
-			
-		sHold = pEntity.pev.maxspeed;
-		if(sHold.Length() > 0)
-			dKeyvalues["maxspeed"] = sHold;	
-			
 		CBaseEntity@ pCopiedEntity = g_EntityFuncs.CreateEntity(sClass, dKeyvalues, false);
 		if(pCopiedEntity is null || !g_EntityFuncs.IsValidEntity(pCopiedEntity.edict()))
 			return null;
 			
 		g_EntityFuncs.DispatchSpawn(pCopiedEntity.edict());
 		pCopiedEntity.pev.oldorigin = pEntity.pev.origin;
+		pCopiedEntity.pev.origin = pEntity.pev.origin;
+		pCopiedEntity.pev.angles = pEntity.pev.angles;
+		pCopiedEntity.pev.v_angle = pEntity.pev.angles;
 		pCopiedEntity.SetOrigin(pEntity.pev.origin);
 		g_EntityFuncs.SetOrigin(pCopiedEntity, pEntity.pev.origin);
 		return pCopiedEntity;
@@ -406,8 +682,14 @@ namespace AF2Entity
 	void entActualMove(AFBaseArguments@ AFArgs, int iMode)
 	{
 		bool bUsing = g_entMoving.exists(AFArgs.User.entindex()) ? true : false;
+		bool bUsing2 = false;
+		if(g_entWeapon.exists(AFArgs.User.entindex()))
+		{
+			EntMoverData@ emd = cast<EntMoverData@>(g_entWeapon[AFArgs.User.entindex()]);
+			bUsing2 = emd.bHolding;
+		}
 		
-		if(iMode == 0 && bUsing)
+		if(iMode == 0 && bUsing && !bUsing2)
 		{
 			Vector grabIndex = Vector(g_entMoving[AFArgs.User.entindex()]);
 			CBaseEntity@ pEntity = g_EntityFuncs.Instance(int(grabIndex.x));
@@ -432,7 +714,7 @@ namespace AF2Entity
 			}
 			
 			g_entMoving.delete(AFArgs.User.entindex());
-		}else if(iMode == 1 && !bUsing)
+		}else if(iMode == 1 && !bUsing && !bUsing2)
 		{
 			g_EngineFuncs.MakeVectors(AFArgs.User.pev.v_angle);
 			Vector vecStart = AFArgs.User.GetGunPosition();
@@ -470,7 +752,7 @@ namespace AF2Entity
 				if(pEntity.pev.flags & FL_FROZEN == 0)
 					pEntity.pev.flags |= FL_FROZEN;
 			}
-		}else if(iMode == 2 && !bUsing)
+		}else if(iMode == 2 && !bUsing && !bUsing2)
 		{
 			g_EngineFuncs.MakeVectors(AFArgs.User.pev.v_angle);
 			Vector vecStart = AFArgs.User.GetGunPosition();
@@ -809,6 +1091,12 @@ namespace AF2Entity
 		bool bHasE = AFBase::CheckAccess(AFArgs.User, ACCESS_E);
 		while((@pEntity = g_EntityFuncs.FindEntityInSphere(pEntity, AFArgs.User.pev.origin, AFArgs.GetFloat(1), AFArgs.GetString(0), "classname")) !is null)
 		{
+			if(pEntity.IsPlayer())
+			{
+				af2entity.Tell("Can't set: target is player!", AFArgs.User, HUD_PRINTCONSOLE);
+				continue;
+			}
+		
 			if(sValout == "")
 			{
 				string sReturn = AF2LegacyCode::getKeyValue(pEntity, AFArgs.GetString(2));
@@ -859,6 +1147,12 @@ namespace AF2Entity
 		bool bHasE = AFBase::CheckAccess(AFArgs.User, ACCESS_E);
 		while((@pEntity = g_EntityFuncs.FindEntityByTargetname(pEntity, AFArgs.GetString(0))) !is null)
 		{
+			if(pEntity.IsPlayer())
+			{
+				af2entity.Tell("Can't set: target is player!", AFArgs.User, HUD_PRINTCONSOLE);
+				continue;
+			}
+		
 			if(sValout == "")
 			{
 				string sReturn = AF2LegacyCode::getKeyValue(pEntity, AFArgs.GetString(1));
@@ -898,6 +1192,12 @@ namespace AF2Entity
 		if(pEntity is null)
 		{
 			af2entity.Tell("No entity in front (4096 units)!", AFArgs.User, HUD_PRINTCONSOLE);
+			return;
+		}
+		
+		if(pEntity.IsPlayer())
+		{
+			af2entity.Tell("Can't set: target is player!", AFArgs.User, HUD_PRINTCONSOLE);
 			return;
 		}
 		
@@ -946,6 +1246,11 @@ namespace AF2Entity
 			CBaseEntity@ pEntity = g_Utility.FindEntityForward(AFArgs.User, 4096);
 			if(pEntity !is null)
 			{
+				if(pEntity.IsPlayer())
+				{
+					af2entity.Tell("Can't damage: target is player!", AFArgs.User, HUD_PRINTCONSOLE);
+					return;
+				}
 				pEntity.TakeDamage(AFArgs.User.pev, AFArgs.User.pev, fDamage, DMG_BLAST);
 			
 			}else{
