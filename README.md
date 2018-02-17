@@ -5,7 +5,7 @@ This plugin allows server owners to easily setup access flags for admins & insta
 ## Quick installation guide:
 1. download the repo
 2. extract to /svencoop_addons/ or /svencoop/ folder
-(if you extracted to svencoop_addons): move contents from svencoop_addons/scripts/plugins/store/ to svencoop/scripts/plugins/store/
+(if you extracted to svencoop_addons): move contents from svencoop_addons/scripts/plugins/store/ to svencoop/scripts/plugins/store/)
 3. insert AFBase into default_plugins.txt:
 ```
     "plugin"

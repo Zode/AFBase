@@ -1091,7 +1091,7 @@ namespace AFBase
 	void UpdateSprayFile(string sId, bool bMode)
 	{
 		array<string> aSHold;
-		File@ file = g_FileSystem.OpenFile("scripts/plugins/store/AFBaseSBans.txt", OpenFile::READ);
+		File@ file = g_FileSystem.OpenFile("scripts/plugins/store/AFBaseSprayBans.txt", OpenFile::READ);
 		bool bUpdatedEntry = false;
 		bool bReadFile = false;
 		if(file !is null && file.IsOpen())
