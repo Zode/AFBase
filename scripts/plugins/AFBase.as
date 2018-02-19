@@ -255,7 +255,7 @@ namespace AFBase
 	
 	bool g_afbIsSafePlugin = false;
 	
-	const string g_afInfo = "AFBase 1.3.0 PUBLIC";
+	const string g_afInfo = "AFBase 1.3.1 PUBLIC";
 	
 	bool IsSafe()
 	{

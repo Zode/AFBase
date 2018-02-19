@@ -149,6 +149,8 @@ class AF2Player : AFBaseClass
 
 namespace AF2Player
 {
+	const int g_TagVisibleTo = ACCESS_G;
+
 	void dumpinfo(AFBaseArguments@ AFArgs)
 	{
 		array<CBasePlayer@> pTargets;
@@ -218,7 +220,7 @@ namespace AF2Player
 		if(AFArgs.GetCount() == 0)
 		{
 			af2player.Tell("Printed list of tags to console", AFArgs.User, targetHud);
-			af2player.Tell("Available tags:", AFArgs.User, HUD_PRINTCONSOLE);
+			af2player.Tell("Available tags (use \"off\" to remove tag):", AFArgs.User, HUD_PRINTCONSOLE);
 			for(uint i = 0; i < g_validTags.length(); i++)
 				af2player.Tell(g_validTags[i], AFArgs.User, HUD_PRINTCONSOLE);
 				
@@ -298,7 +300,7 @@ namespace AF2Player
 			@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
 			if(pSearch !is null)
 			{
-				if(AFBase::CheckAccess(pSearch, ACCESS_G))
+				if(AFBase::CheckAccess(pSearch, g_TagVisibleTo))
 				{
 					tagRefreshView(pSearch);
 				}
@@ -311,7 +313,7 @@ namespace AF2Player
 		if(pView is null)
 			return;
 			
-		if(pView !is null && AFBase::CheckAccess(pView, ACCESS_G))
+		if(pView !is null && AFBase::CheckAccess(pView, g_TagVisibleTo))
 		{
 			CBasePlayer@ pSearch;
 			for(int i = 1; i <= g_Engine.maxClients; i++)
@@ -350,7 +352,7 @@ namespace AF2Player
 			@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
 			if(pSearch !is null)
 			{
-				if(AFBase::CheckAccess(pSearch, ACCESS_G))
+				if(AFBase::CheckAccess(pSearch, g_TagVisibleTo))
 				{
 					NetworkMessage message(MSG_ONE_UNRELIABLE, NetworkMessages::SVC_TEMPENTITY, pSearch.edict());
 						message.WriteByte(TE_PLAYERATTACHMENT);
@@ -372,7 +374,7 @@ namespace AF2Player
 			@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
 			if(pSearch !is null)
 			{
-				if(AFBase::CheckAccess(pSearch, ACCESS_G))
+				if(AFBase::CheckAccess(pSearch, g_TagVisibleTo))
 				{
 					NetworkMessage message(MSG_ONE_UNRELIABLE, NetworkMessages::SVC_TEMPENTITY, pSearch.edict());
 						message.WriteByte(TE_KILLPLAYERATTACHMENTS);
@@ -400,7 +402,7 @@ namespace AF2Player
 			@pSearch = g_PlayerFuncs.FindPlayerByIndex(i);
 			if(pSearch !is null)
 			{
-				if(AFBase::CheckAccess(pSearch, ACCESS_G))
+				if(AFBase::CheckAccess(pSearch, g_TagVisibleTo))
 				{
 					g_PlayerFuncs.ClientPrint(pSearch, HUD_PRINTTALK, sTalk+"\n");
 				}
