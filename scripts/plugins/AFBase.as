@@ -255,7 +255,7 @@ namespace AFBase
 	
 	bool g_afbIsSafePlugin = false;
 	
-	const string g_afInfo = "AFBase 1.3.1 PUBLIC";
+	const string g_afInfo = "AFBase 1.3.2 PUBLIC";
 	
 	bool IsSafe()
 	{
@@ -3841,7 +3841,7 @@ namespace AFBaseBase
 		for(uint i = 0; i < AFBase::g_afbCommandList.length(); i++)
 		{
 			AFBase::ParseCommand(AFBase::g_afbCommandList[i], iCmdAccess, sENameID, sVisual);
-			if(afbUser.iAccess & iCmdAccess > 0)
+			if(afbUser.iAccess & iCmdAccess == iCmdAccess)
 			{
 				@AFBClass = cast<AFBaseClass@>(AFBase::g_afbExpansionList[sENameID]);
 				if(AFBClass !is null)
