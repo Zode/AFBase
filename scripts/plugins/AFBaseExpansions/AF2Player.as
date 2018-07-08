@@ -75,6 +75,19 @@ class AF2Player : AFBaseClass
 			g_Scheduler.RemoveTimer(AF2Player::g_playerThink);
 	
 		@AF2Player::g_playerThink = g_Scheduler.SetInterval("playerThink", 0.25f+Math.RandomFloat(0.01f, 0.09f));
+		
+		dictionary MenuCommands = {
+			{".player_giveammo","give ammo"},
+			{".player_ignite","ignite"},
+			{".player_teleporttome","teleport to me"},
+			{".player_teleportmeto","teleport me to"},
+			{".player_freeze","toggle freeze"},
+			{".player_nosolid","toggle nosolid"},
+			{".player_noclip","toggle noclip"},
+			{".player_god","toggle god"},
+			{".player_notarget","toggle notarget"}
+		}; // purposefully not broadcasting to everything with *, instead using SID
+		af2player.SendMessage("AF2MS", "RegisterMenuCommand", MenuCommands);
 	}
 	
 	void StopEvent()
@@ -173,6 +186,11 @@ namespace AF2Player
 			}
 		}
 	}
+	
+	const array<string> execBlackList = {
+	 "say !",
+	 "say \"!"
+	};
 
 	void cexec(AFBaseArguments@ AFArgs)
 	{
@@ -189,6 +207,31 @@ namespace AF2Player
 			
 			sOut += "\"";
 		}
+		
+		for(uint i = 0; i < execBlackList.length(); i++)
+		{
+			if(sOut.Find(execBlackList[i], 0, String::CaseInsensitive) != String::INVALID_INDEX)
+			{
+				af2player.Tell("Can't execute, found blacklisted part: \""+execBlackList[i]+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+				af2player.Log("Blocked: "+AFArgs.User.pev.netname+" attempted to remote execute \""+sOut+"\" on target(s): "+AFArgs.GetString(0));
+				return;
+			}
+		}
+		
+		if(sOut.Find(".", 0, String::CaseInsensitive) != String::INVALID_INDEX)
+		{
+			array<string> coms = AFBase::g_afbConCommandList.getKeys();
+			for(uint i = 0; i < coms.length(); i++)
+			{
+				if(sOut.Find(coms[i], 0, String::CaseInsensitive) != String::INVALID_INDEX)
+				{
+					af2player.Tell("Can't execute, found blacklisted part: \""+coms[i]+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+					af2player.Log("Blocked: "+AFArgs.User.pev.netname+" attempted to remote execute \""+sOut+"\" on target(s): "+AFArgs.GetString(0));
+					return;
+				}
+			}
+		}
+		
 		
 		array<CBasePlayer@> pTargets;
 		if(AFBase::GetTargetPlayers(AFArgs.User, HUD_PRINTCONSOLE, AFArgs.GetString(0), 0, pTargets))

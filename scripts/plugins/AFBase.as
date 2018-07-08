@@ -130,7 +130,20 @@ void MapInit()
 		
 	@AFBase::g_afbThink = g_Scheduler.SetInterval("AFBaseThink", 2.0f+Math.RandomFloat(0.01f, 0.09f));
 	AFBase::g_afbIsSafePlugin = true;
-	AFBase::BaseLog("Map init.");
+	AFBase::BaseLog("Map init(s) called in expansion(s).");
+}
+
+void MapActivate()
+{
+	AFBaseClass@ AFBClass = null;
+	array<string> afbKeys = AFBase::g_afbExpansionList.getKeys();
+	for(uint i = 0; i < afbKeys.length(); i++)
+	{
+		@AFBClass = cast<AFBaseClass@>(AFBase::g_afbExpansionList[afbKeys[i]]);
+		if(AFBClass !is null)
+			AFBClass.MapActivate();
+	}
+	AFBase::BaseLog("Map activate(s) called in expansion(s).");
 }
 
 void AFBaseThink()
@@ -255,7 +268,7 @@ namespace AFBase
 	
 	bool g_afbIsSafePlugin = false;
 	
-	const string g_afInfo = "AFBase 1.3.2 PUBLIC";
+	const string g_afInfo = "AFBase 1.4.0 PUBLIC";
 	
 	bool IsSafe()
 	{
@@ -292,25 +305,44 @@ namespace AFBase
 	
 	string GetFixedSteamID(CBasePlayer@ pUser)
 	{
-		if(pUser is null or !pUser.IsConnected())
+		bool bUnsafe = false;
+		if(pUser is null)
 		{
-			BaseLog("Player steamID check failed");
+			BaseLog("Player SteamID check failed: User entity is null! Returning empty");
 			return "";
 		}
 		
-		string steamID = g_EngineFuncs.GetPlayerAuthId(pUser.edict());
-		if(steamID == "")
-			for(int i = 0; i < 8; i++) // lowered search amount
+		if(!pUser.IsConnected())
+		{
+			bUnsafe = true;
+			BaseLog("WARNING: Checking against disconnected player!");
+		}
+		AFBaseUser@ afbUser = GetUser(pUser);
+		if(afbUser is null)
+		{
+			BaseLog("User cache missing. Getting ID from engine..");
+			string steamID = g_EngineFuncs.GetPlayerAuthId(pUser.edict());
+			if(steamID == "")
+				for(int i = 0; i < 8; i++) // lowered search amount
+				{
+					steamID = g_EngineFuncs.GetPlayerAuthId(pUser.edict());
+					if(steamID != "")
+						break;
+				}
+				
+			if(bUnsafe && steamID == "")
 			{
-				steamID = g_EngineFuncs.GetPlayerAuthId(pUser.edict());
-				if(steamID != "")
-					break;
+				BaseLog("Player SteamID check failed: User cache missing & user is not connected, returning empty");
+				return "";
 			}
 
-		if(steamID == "STEAM_ID_LAN" or steamID == "BOT")
-			steamID = pUser.pev.netname;
-			
-		return steamID;
+			if(steamID == "STEAM_ID_LAN" or steamID == "BOT")
+				steamID = pUser.pev.netname;
+				
+			return steamID;
+		}else{
+			return afbUser.sSteam;
+		}
 	}
 	
 	HookReturnCode HandleClientPreConnect(edict_t@ eEdict, const string &in sNick, const string &in sIp, bool &out bNoJoin, string &out sReason)
@@ -2292,6 +2324,8 @@ abstract class AFBaseClass
 	
 	void MapInit() {} // user define
 	
+	void MapActivate() {} // user define
+	
 	void RegisterCommand(string sCommand, string sReqArgs, string sDescription, int iAccess, AFBase::AFBaseCommandCallback@ callback, bool bPrecacheGuard, bool bSupressChat) final
 	{
 		bool bInserted = AFBase::InsertCommand(this.ShortName, sCommand, sReqArgs, sDescription, iAccess, callback, bPrecacheGuard, bSupressChat);
@@ -2473,6 +2507,9 @@ class AFBaseBase : AFBaseClass
 		RegisterCommand("admin_blockdecals", "sb", "(target) (0/1 unban/ban) - Ban target from spraying", ACCESS_G, @AFBaseBase::bandecals);
 		RegisterCommand("admin_gag", "ss", "(targets) (mode a/c/v) - gag player, a = all, c = chat, v = voice", ACCESS_G, @AFBaseBase::gag);
 		RegisterCommand("admin_ungag", "s", "(targets) - ungag player", ACCESS_G, @AFBaseBase::ungag);
+		RegisterCommand("afb_peek", "s", "(targets) - peeks into internal AFB info", ACCESS_B, @AFBaseBase::peek);
+		RegisterCommand("afb_disconnected", "!b", "<0/1 don't shorten nicks> - Show recently disconnected client information", ACCESS_E, @AFBaseBase::disconnected);
+		RegisterCommand("afb_last", "!b", "<0/1 don't shorten nicks> - (alias for afb_disconnected) Show recently disconnected client information", ACCESS_E, @AFBaseBase::disconnected);
 		
 		@AFBaseBase::cvar_iBanMaxMinutes = CCVar("afb_maxban", 10080, "maximum time for bans in minutes (default: 10080)", ConCommandFlag::AdminOnly, CVarCallback(this.afb_cvar_ibanmaxminutes));
 		
@@ -2495,17 +2532,207 @@ class AFBaseBase : AFBaseClass
 		g_Game.PrecacheGeneric("sound/zode/thunder.ogg");
 		g_SoundSystem.PrecacheSound("weapons/cbar_hitbod1.wav");
 		AFBaseBase::g_PlayerDecalTracker.Reset();
+		AFBaseBase::CheckDisconnects();
+		
+		dictionary MenuCommands = {
+			{".admin_slay","slay"},
+			{".afb_setlast","set as @last target"}
+		}; // purposefully not broadcasting to everything with *, instead using SID
+		afbasebase.SendMessage("AF2MS", "RegisterMenuCommand", MenuCommands);
 	}
 	
 	void ClientDisconnectEvent(CBasePlayer@ pUser)
 	{
 		if(AFBaseBase::g_decaltrackers.find(pUser.entindex()) > -1)
 			AFBaseBase::g_decaltrackers.removeAt(AFBaseBase::g_decaltrackers.find(pUser.entindex()));
+			
+		AFBaseBase::UserDisconnected(pUser);
 	}
 }
 
 namespace AFBaseBase
 {
+	class DisconnectedUser
+	{
+		string sTime;
+		string sNick;
+		string sIp;
+		string sSteam;
+	}
+	
+	dictionary g_disconnectedUserList;
+	
+	void UserDisconnected(CBasePlayer@ pUser)
+	{
+		DisconnectedUser disUser;
+		DateTime datetime;
+		time_t unixtime = datetime.ToUnixTimestamp();
+		disUser.sTime = string(unixtime);
+		AFBase::AFBaseUser@ AFBUser = AFBase::GetUser(pUser);
+		if(AFBUser is null)
+		{
+			afbasebase.Log("Disconnect logging: failed to retrieve cached user info.");
+			return;
+		}
+		
+		disUser.sNick = AFBUser.sNick;
+		disUser.sIp = AFBUser.sIp;
+		disUser.sSteam = AFBUser.sSteam;
+		g_disconnectedUserList[disUser.sSteam] = disUser;
+	}
+	
+	void CheckDisconnects()
+	{
+		array<string> disKeys = g_disconnectedUserList.getKeys();
+		array<string> toRemove;
+		DisconnectedUser@ disUser = null;
+		for(uint i = 0; i < disKeys.length(); i++)
+		{
+			@disUser = cast<DisconnectedUser@>(g_disconnectedUserList[disKeys[i]]);
+			if(disUser !is null)
+			{
+				DateTime datetime;
+				time_t unixtime = datetime.ToUnixTimestamp();
+				DateTime datetime2 = datetime;
+				datetime2.SetUnixTimestamp(atoi(disUser.sTime));
+				time_t unixtime2 = datetime2.ToUnixTimestamp();
+				time_t unixtimeleft = unixtime-unixtime2;
+				int iTime = int(unixtimeleft/60);
+				if(iTime >= 30)
+					toRemove.insertLast(disKeys[i]);
+			}
+		}
+		
+		for(uint i = 0; i < toRemove.length(); i++)
+		{
+			g_disconnectedUserList.delete(toRemove[i]);
+		}
+	}
+	
+	void disconnected(AFBaseArguments@ AFArgs)
+	{
+		bool bNoFormat = AFArgs.GetCount() >= 1 ? AFArgs.GetBool(0) : false;
+		array<string> disKeys = g_disconnectedUserList.getKeys();
+		string sSpace = "                                                                                                                                                                ";
+		g_PlayerFuncs.ClientPrint(AFArgs.User, HUD_PRINTCONSOLE, "----AdminFuckeryBase: Clients recently disconnected from server-----------------\n");
+		if(!bNoFormat)
+			g_PlayerFuncs.ClientPrint(AFArgs.User, HUD_PRINTCONSOLE, "----Nicks longer than 15 characters have been cut off with \"~\", use .afb_disconnected 1 to remove this\n");
+		else
+			g_PlayerFuncs.ClientPrint(AFArgs.User, HUD_PRINTCONSOLE, "----Nicks are no longer cut off. formatting may fuck up, use .afb_disconnected 0 to fix this\n");
+		int iOffsetId = 0;
+		uint iLongestNick = 4;
+		uint iLongestAuth = 6;
+		uint iLongestIp = 2;
+		uint iLongestMinutes = 6;
+		string stempip = "";
+		DisconnectedUser@ disUser = null;
+		for(uint i = 0; i < disKeys.length(); i++)
+		{
+			@disUser = cast<DisconnectedUser@>(g_disconnectedUserList[disKeys[i]]);
+			if(disUser !is null)
+			{
+				if(disUser.sNick.Length() > iLongestNick)
+					if(!bNoFormat)
+						if(disUser.sNick.Length() > 14)
+							iLongestNick = 14;
+						else
+							iLongestNick = disUser.sNick.Length();
+					else
+						iLongestNick = disUser.sNick.Length();
+					
+				if(disUser.sSteam.Length() > iLongestAuth)
+					iLongestAuth = disUser.sSteam.Length();
+					
+				stempip = disUser.sIp == "" ? "N/A Unknown" : disUser.sIp;
+					
+				if(stempip.Length() > iLongestIp)
+					iLongestIp = stempip.Length();
+			}
+		}
+		
+		iOffsetId = int(floor(disKeys.length()/10));
+		if(iOffsetId < 1)
+			iOffsetId = 1;
+		string sVID = sSpace.SubString(0,iOffsetId)+"#  ";
+		string sVNICK = "Nick"+sSpace.SubString(0,iLongestNick-4)+"  ";
+		string sVAUTH = "Authid"+sSpace.SubString(0,iLongestAuth-6)+"  ";
+		string sVIP = "Ip"+sSpace.SubString(0,iLongestIp-2)+"  ";
+		string sMIN = "Min(s)"+sSpace.SubString(0,iLongestMinutes-6);
+		TellLongCustom(sVID+sVNICK+sVAUTH+sVIP+sMIN+"\n", AFArgs.User, HUD_PRINTCONSOLE);
+		for(uint i = 0; i < disKeys.length(); i++)
+		{
+			@disUser = cast<DisconnectedUser@>(g_disconnectedUserList[disKeys[i]]);
+			if(disUser !is null)
+			{
+				iOffsetId = iOffsetId-int(floor((1+i)/10));
+				if(iOffsetId < 1)
+					iOffsetId = 1;
+					
+				if(i >= 9) // 21.7.2017 -- fixes offset by one character when more than 10 players are in the server
+					sVID = sSpace.SubString(0, iOffsetId)+string(1+i)+" ";
+				else
+					sVID = sSpace.SubString(0, iOffsetId)+string(1+i)+"  ";
+					
+				if(!bNoFormat)
+					if(disUser.sNick.Length() > 14)
+					{
+						string sFormNick = disUser.sNick.SubString(0,13)+"~";
+						sVNICK = sFormNick+sSpace.SubString(0,iLongestNick-14)+"  ";
+					}else
+						sVNICK = disUser.sNick+sSpace.SubString(0,iLongestNick-disUser.sNick.Length())+"  ";
+				else
+					sVNICK = disUser.sNick+sSpace.SubString(0,iLongestNick-disUser.sNick.Length())+"  ";
+				
+				sVAUTH = disUser.sSteam+sSpace.SubString(0,iLongestAuth-disUser.sSteam.Length())+"  ";
+				stempip = disUser.sIp == "" ? "N/A Unknown" : disUser.sIp;
+				sVIP = stempip+sSpace.SubString(0, iLongestIp-stempip.Length())+"  ";
+				
+				DateTime datetime;
+				time_t unixtime = datetime.ToUnixTimestamp();
+				DateTime datetime2 = datetime;
+				datetime2.SetUnixTimestamp(atoi(disUser.sTime));
+				time_t unixtime2 = datetime2.ToUnixTimestamp();
+				time_t unixtimeleft = unixtime-unixtime2;
+				sMIN = string(int(unixtimeleft/60));
+				sMIN = sMIN+sSpace.SubString(0, iLongestMinutes-sMIN.Length());
+				
+				TellLongCustom(sVID+sVNICK+sVAUTH+sVIP+sMIN+"\n", AFArgs.User, HUD_PRINTCONSOLE);
+			}
+		}
+		g_PlayerFuncs.ClientPrint(AFArgs.User, HUD_PRINTCONSOLE, "--------------------------------------------------------------------------------\n");
+	}
+
+	void peek(AFBaseArguments@ AFArgs)
+	{
+		array<CBasePlayer@> pTargets;
+		if(AFBase::GetTargetPlayers(AFArgs.User, HUD_PRINTCONSOLE, AFArgs.GetString(0), 0, pTargets))
+		{
+			CBasePlayer@ pTarget = null;
+			for(uint i = 0; i < pTargets.length(); i++)
+			{
+				@pTarget = pTargets[i];
+				int iIndex = pTarget.entindex();
+				AFBase::AFBaseUser afbUser = cast<AFBase::AFBaseUser@>(AFBase::g_afbUserList[iIndex]);
+				if(afbUser is null)
+				{
+					afbasebase.Tell("Can't peek: AFBaseUser class missing!", AFArgs.User, HUD_PRINTCONSOLE);
+					return;
+				}
+				
+				afbasebase.Tell("Peek: "+pTarget.pev.netname, AFArgs.User, HUD_PRINTCONSOLE);
+				afbasebase.Tell("bLock: "+(afbUser.bLock ? "True" : "False"), AFArgs.User, HUD_PRINTCONSOLE);
+				afbasebase.Tell("iAccess: "+string(afbUser.iAccess), AFArgs.User, HUD_PRINTCONSOLE);
+				afbasebase.Tell("sAccess: "+afbUser.sAccess, AFArgs.User, HUD_PRINTCONSOLE);
+				afbasebase.Tell("sLastTarget: "+afbUser.sLastTarget, AFArgs.User, HUD_PRINTCONSOLE);
+				afbasebase.Tell("sNick: "+afbUser.sNick, AFArgs.User, HUD_PRINTCONSOLE);
+				afbasebase.Tell("sOldNick: "+afbUser.sOldNick, AFArgs.User, HUD_PRINTCONSOLE);
+				afbasebase.Tell("sSteam: "+afbUser.sSteam, AFArgs.User, HUD_PRINTCONSOLE);
+				afbasebase.Tell("bSprayBan: "+(afbUser.bSprayBan ? "True" : "False"), AFArgs.User, HUD_PRINTCONSOLE);
+				afbasebase.Tell("iGagMode: "+string(afbUser.iGagMode), AFArgs.User, HUD_PRINTCONSOLE);
+			}
+		}
+	}
+
 	void AddBan(CBasePlayer@ pTarget, int iMinutes, string sReason, bool bUseIp)
 	{
 		string sId = AFBase::FormatSafe(AFBase::GetFixedSteamID(pTarget));

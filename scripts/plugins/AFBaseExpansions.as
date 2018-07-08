@@ -4,6 +4,7 @@
 #include "AFBaseExpansions/AF2Entity"
 #include "AFBaseExpansions/AF2Fun"
 #include "AFBaseExpansions/AF2EKI"
+#include "AFBaseExpansions/AF2Menu"
 
 
 
@@ -18,7 +19,8 @@ void AFBaseCallExpansions()
 	AF2Player_Call(); // adminfuckery 2 player commands
 	AF2Entity_Call(); // adminfuckery 2 entity commands
 	AF2Fun_Call(); // adminfuckery 2 fun commands
-
+	AF2Menu_Call(); // adminfuckery 2 menu system
+	
 	
 	
 	
