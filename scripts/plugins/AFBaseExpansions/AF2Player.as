@@ -868,7 +868,7 @@ namespace AF2Player
 					
 					if(int(g_playerModes[pSearch.entindex()]) & PLAYER_NOCLIP > 0)
 					{
-						if(pSearch.pev.movetype != PLAYER_NOCLIP)
+						if(pSearch.pev.movetype != MOVETYPE_NOCLIP)
 							pSearch.pev.movetype = MOVETYPE_NOCLIP;
 
 						if(pSearch.pev.flags & FL_FLY == 0)
