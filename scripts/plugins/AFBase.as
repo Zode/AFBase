@@ -268,7 +268,7 @@ namespace AFBase
 	
 	bool g_afbIsSafePlugin = false;
 	
-	const string g_afInfo = "AFBase 1.4.0 PUBLIC";
+	const string g_afInfo = "AFBase 1.4.1 PUBLIC";
 	
 	bool IsSafe()
 	{
@@ -3502,6 +3502,9 @@ namespace AFBaseBase
 				afbasebase.Tell("Slayed player "+pTarget.pev.netname, AFArgs.User, HUD_PRINTCONSOLE);
 				afbasebase.Log("Admin "+AFArgs.User.pev.netname+" slayed player "+pTarget.pev.netname);
 				entvars_t@ world = g_EntityFuncs.Instance(0).pev;
+				//making sure slay works with non-vanilla players (SCXPM/Balancing scripts or when the admin has poked around with _keyvalue health)
+				pTarget.pev.health = 1;
+				pTarget.pev.armorvalue = 0;
 				pTarget.TakeDamage(world, world, 16384.0f, DMG_ALWAYSGIB|DMG_CRUSH);
 				if(AFBase::IsSafe())
 				{
