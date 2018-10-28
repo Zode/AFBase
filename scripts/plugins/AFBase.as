@@ -3502,7 +3502,7 @@ namespace AFBaseBase
 				afbasebase.Tell("Slayed player "+pTarget.pev.netname, AFArgs.User, HUD_PRINTCONSOLE);
 				afbasebase.Log("Admin "+AFArgs.User.pev.netname+" slayed player "+pTarget.pev.netname);
 				entvars_t@ world = g_EntityFuncs.Instance(0).pev;
-				pTarget.TakeDamage(world, world, 2048.0f, DMG_ALWAYSGIB|DMG_CRUSH);
+				pTarget.TakeDamage(world, world, 16384.0f, DMG_ALWAYSGIB|DMG_CRUSH);
 				if(AFBase::IsSafe())
 				{
 					TraceResult tr;
