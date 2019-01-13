@@ -29,7 +29,7 @@ void PluginInit()
 	AFBase::g_afbTempUser.deleteAll();
 	AFBase::g_afbCommandList.resize(0);
 	AFBaseBaseExpansionCall();
-	AFBase::AFBaseCallExpansions();
+	AFBaseCallExpansions();
 	AFBase::g_afbCommandList.sortAsc();
 	AFBase::BaseLog("Expansions loaded!");
 	
@@ -1638,7 +1638,7 @@ namespace AFBase
 					
 				string sMinutes = parsed[1];
 				string sReason = "";
-				for(uint i = 2; i < parsed.length; i++)
+				for(uint i = 2; i < parsed.length(); i++)
 					if(i > 2)
 						sReason += " "+parsed[i];
 					else
@@ -3608,10 +3608,10 @@ namespace AFBaseBase
 		string sOut = AFArgs.GetString(0);
 		
 		array<string> parsed = sOut.Split(" ");
-		if(parsed.length >= 2)
+		if(parsed.length() >= 2)
 		{
 			sOut = parsed[0]+" \"";
-			for(uint i = 1; i < parsed.length; i++)
+			for(uint i = 1; i < parsed.length(); i++)
 				if(i > 1)
 					sOut += " "+parsed[i];
 				else

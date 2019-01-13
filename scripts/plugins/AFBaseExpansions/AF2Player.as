@@ -196,10 +196,10 @@ namespace AF2Player
 	{
 		string sOut = AFArgs.GetString(1);
 		array<string> parsed = sOut.Split(" ");
-		if(parsed.length >= 2)
+		if(parsed.length() >= 2)
 		{
 			sOut = parsed[0]+" \"";
-			for(uint i = 1; i < parsed.length; i++)
+			for(uint i = 1; i < parsed.length(); i++)
 				if(i > 1)
 					sOut += " "+parsed[i];
 				else
