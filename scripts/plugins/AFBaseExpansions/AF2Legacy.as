@@ -8,6 +8,11 @@ namespace AF2LegacyCode
 	{
 		return string(vin);
 	}
+	
+	string sstring(string_t vin)
+	{
+		return string(vin);
+	}
 
 	string sstring(double vin)
 	{
