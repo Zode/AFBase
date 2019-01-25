@@ -29,7 +29,7 @@ B)
 "documentation" for extension scripting available [here](https://zode.github.io/AFBase/) (Outdated! Will update to match 1.5.0 soon!)
 
 ## for users:
-(new in 1.5.0) wildcarding works now from start, and both ways. You can use *mpleUser, *mple* or Example* to target "ExampleUser". Wildcards that result in multiple players wont be executed anymore.
+(new in 1.5.0) wildcarding works now from start, and both ways. You can use \*mpleUser, \*mple\* or Example\* to target "ExampleUser". Wildcards that result in multiple players wont be executed anymore.
 
 random values in keyvalue fields: you can use r#A-B to select a random value, for example: .player_keyvalue @me health r#30-60 would set your health to a random value between 30 and 60.
 
