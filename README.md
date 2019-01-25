@@ -20,7 +20,6 @@ A)
 6. as_reloadplugins & changelevel
 7. (optional): if you didint give yourself all the flags in step 5, run this command: .afb_access @me "+cdefghijklmnopqrstuvwyx"
 8. done!
-
 B)
 5. connect to your server
 6. in your svends server console, run: as_command .s_afb_access "NICKNAME OR STEAMID HERE" "+bcdefghijklmnopqrstuvwyx"
