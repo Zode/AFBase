@@ -18,15 +18,15 @@ This plugin allows server owners to easily setup access flags for admins & insta
 5. Do either of these methods.
 
 Method A
- add your steamid with  the flag B or alternatively give yourself all the flags
- as_reloadplugins & changelevel
- (optional): if you didint give yourself all the flags in step 5, run this command: .afb_access @me "+cdefghijklmnopqrstuvwyx"
- done!
+1. add your steamid with  the flag B or alternatively give yourself all the flags
+2. as_reloadplugins & changelevel
+3.ö (optional): if you didint give yourself all the flags in step 5, run this command: .afb_access @me "+cdefghijklmnopqrstuvwyx"
+4. done!
 
 Method B
- connect to your server
- in your svends server console, run: as_command .s_afb_access "NICKNAME OR STEAMID HERE" "+bcdefghijklmnopqrstuvwyx"
- done!
+1. connect to your server
+2. in your svends server console, run: as_command .s_afb_access "NICKNAME OR STEAMID HERE" "+bcdefghijklmnopqrstuvwyx"
+3. done!
 
 ## for scripters:
 "documentation" for extension scripting available [here](https://zode.github.io/AFBase/) (Outdated! Will update to match 1.5.0 soon!)
