@@ -35,7 +35,7 @@ class AF2Entity : AFBaseClass
 		RegisterCommand("ent_item", "s", "(weapon_/ammo_/item_ name) - Spawn weapon/ammo/item at your location", ACCESS_F, @AF2Entity::item);
 		RegisterCommand("ent_worldcopy", "f!vbbb", "(speed) <angle vector> <0/1 reverse> <0/1 xaxis> <0/1 yaxis> - Create worldcopy", ACCESS_F, @AF2Entity::worldcopy);
 		RegisterCommand("ent_worldremove", "", "- Remove all worldcopies", ACCESS_F, @AF2Entity::worldremove);
-		RegisterCommand("ent_mover", "!i", "<0/1 mode> - weapon_entmover, don't define mode to toggle", ACCESS_F, @AF2Entity::entmover, true);
+		RegisterCommand("ent_mover", "!i", "<0/1 mode> - weapon_entmover, don't define mode to toggle", ACCESS_F, @AF2Entity::entmover, CMD_PRECACHE);
 		RegisterCommand("ent_dumpinfo", "!bs", "<dirty 0/1> <targetname> - dump entity keyvalues into console, if no targetname given it will attempt to trace forwards", ACCESS_F, @AF2Entity::dumpinfo);
 		
 		g_Hooks.RegisterHook(Hooks::Player::PlayerPreThink, @AF2Entity::PlayerPreThink);
@@ -384,12 +384,10 @@ namespace AF2Entity
 			EntMoverData emd;
 			emd.weaponModel = pPlayer.pev.weaponmodel;
 			emd.viewModel = pPlayer.pev.viewmodel;
-			pPlayer.pev.weaponmodel = "models/zode/p_entmover.mdl";
-			pPlayer.pev.viewmodel = "models/zode/v_entmover.mdl";
-			pPlayer.m_iHideHUD = 1;
-			pPlayer.m_iEffectBlockWeapons = 1;
-			if(pPlayer.pev.flags & FL_NOWEAPONS == 0)
-				pPlayer.pev.flags |= FL_NOWEAPONS;
+			
+			//pPlayer.m_iEffectBlockWeapons = 1;
+			//if(pPlayer.pev.flags & FL_NOWEAPONS == 0)
+			//	pPlayer.pev.flags |= FL_NOWEAPONS;
 			if(pPlayer.HasWeapons())
 			{
 				CBasePlayerWeapon@ activeItem = cast<CBasePlayerWeapon@>(pPlayer.m_hActiveItem.GetEntity());
@@ -400,19 +398,25 @@ namespace AF2Entity
 				activeItem.m_flTimeWeaponIdle = 43200.0f;
 			}
 			
+			pPlayer.BlockWeapons(pPlayer);
+			pPlayer.pev.weaponmodel = "models/zode/p_entmover.mdl";
+			pPlayer.pev.viewmodel = "models/zode/v_entmover.mdl";
+			pPlayer.m_iHideHUD = 0;
 			g_entWeapon[pPlayer.entindex()] = emd;
 			
 		}else{
 			EntMoverData@ emd = cast<EntMoverData@>(g_entWeapon[pPlayer.entindex()]);
+			pPlayer.UnblockWeapons(pPlayer);
 			if(!bReset)
 			{
 				pPlayer.pev.weaponmodel = emd.weaponModel;
 				pPlayer.pev.viewmodel = emd.viewModel;
 			}
-			pPlayer.m_iHideHUD = 0;
-			pPlayer.m_iEffectBlockWeapons = 0;
-			if(pPlayer.pev.flags & FL_NOWEAPONS > 0)
-			pPlayer.pev.flags &= ~FL_NOWEAPONS;
+			
+			//pPlayer.m_iHideHUD = 0;
+			//pPlayer.m_iEffectBlockWeapons = 0;
+			//if(pPlayer.pev.flags & FL_NOWEAPONS > 0)
+			//	pPlayer.pev.flags &= ~FL_NOWEAPONS;
 			if(pPlayer.HasWeapons())
 			{
 				CBasePlayerWeapon@ activeItem = cast<CBasePlayerWeapon@>(pPlayer.m_hActiveItem.GetEntity());

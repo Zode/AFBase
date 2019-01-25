@@ -138,8 +138,18 @@ namespace AF2Menu
 		plrMenu.cMenu.SetTitle("[AFB] Select command: ");
 		//plrMenu.cMenu.AddItem("give ammo", any(".player_giveammo"));
 		array<string> keys = g_commands.getKeys();
-		for(uint j = 0; j < keys.length(); j++)
-			plrMenu.cMenu.AddItem(string(g_commands[keys[j]]), any(keys[j]));
+		AFBase::VisualCommand@ visCom;
+		AFBase::AFBaseUser@ afbUser = AFBase::GetUser(cast<CBasePlayer@>(g_EntityFuncs.Instance(g_EntityFuncs.IndexEnt(i))));
+		for(uint k = 0; k < AFBase::g_afbVisualCommandList.length(); k++)
+		{
+			@visCom = cast<AFBase::VisualCommand@>(AFBase::g_afbVisualCommandList[k]);
+			for(uint j = 0; j < keys.length(); j++)
+			{
+				if(keys[j] == "."+visCom.sCmd)
+					if(afbUser.iAccess & visCom.iCmdAccess == visCom.iCmdAccess)
+						plrMenu.cMenu.AddItem(string(g_commands[keys[j]]), any(keys[j]));
+			}
+		}
 		plrMenu.cMenu.Register();
 		plrMenu.iState = 2;
 	}
