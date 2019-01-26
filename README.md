@@ -29,7 +29,7 @@ Method B
 3. done!
 
 ## for scripters:
-"documentation" for extension scripting available [here](https://zode.github.io/AFBase/) (Outdated! Will update to match 1.5.0 soon!)
+"documentation" for extension scripting available [here](https://zode.github.io/AFBase/)
 
 ## for users:
 (new in 1.5.0) wildcarding works now from start, and both ways. You can use \*mpleUser, \*mple\* or Example\* to target "ExampleUser". Wildcards that result in multiple players wont be executed anymore.

@@ -29,9 +29,7 @@
 <br><p>fourth parameter is the access level required, see ACCESS ENUM for more</p>
 <p>you can also "chain" accessflags by using "|", for example ACCESS_E|ACCESS_F requires both flags E and F</p>
 <br><p>fifth parameter is the callback function, remember to include namespace in front of it</p>
-<br><p>sixth parameter is optional, it defines if the command can be executed without precaching, setting this to true will block the command execution if no precache was done</p>
-<p>however if you wish to execute the command but it uses precached stuff, you can always query AFBase if it has executed precaching routines</p>
-<br><p>seventh parameter is optional, it defines if chat should be "supressed" aka hidden, setting this to true will hide user chat and effectively hide the command from chat</p>
+<br><p>sixth parameter is optional, it holds flags for the command (see CMD enum) - you can chain these by using "|"</p>
 </div>
 </body>
 </html>
