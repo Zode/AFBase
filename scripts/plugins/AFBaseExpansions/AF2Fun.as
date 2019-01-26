@@ -24,6 +24,8 @@ class AF2Fun : AFBaseClass
 		RegisterCommand("fun_shootportal", "!fff", "<damage> <radius> <velocity> - shoot portals!", ACCESS_H, @AF2Fun::shootportal);
 		RegisterCommand("fun_shootrocket", "!f", "<velocity> - shoot normal RPG rockets!", ACCESS_H, @AF2Fun::shootrocket);
 		RegisterCommand("fun_maplight", "s", "(character from A (darkest) to Z (brightest), M returns to normal) - set map lighting!", ACCESS_H, @AF2Fun::maplight);
+		RegisterCommand("fun_flash", "s!i", "(targets) <0/1> - toggle or set target(s) flashlight", ACCESS_H, @AF2Fun::flash);
+		RegisterCommand("fun_conc", "sfff", "(targets) (amplitude) (frequency) (fadetime) - CoNcUsSiOn!", ACCESS_H, @AF2Fun::conc);
 	}
 }
 
@@ -157,4 +159,49 @@ namespace AF2Fun
 		float fDur = AFArgs.GetCount() >= 3 ? AFArgs.GetFloat(2) : 10.0f;
 		g_PlayerFuncs.ScreenShakeAll(AFArgs.User.pev.origin, fAmp, fFreq, fDur);
 	}
+	
+	void flash(AFBaseArguments@ AFArgs)
+	{
+		array<CBasePlayer@> pTargets;
+		if(AFBase::GetTargetPlayers(AFArgs.User, HUD_PRINTCONSOLE, AFArgs.GetString(0), TARGETS_NOIMMUNITYCHECK, pTargets))
+		{
+			CBasePlayer@ pTarget = null;
+			for(uint i = 0; i < pTargets.length(); i++)
+			{
+				@pTarget = pTargets[i];
+				if(AFArgs.GetCount() == 1)
+				{
+					af2fun.Tell("flashlight toggled: "+pTarget.pev.netname, AFArgs.User, HUD_PRINTCONSOLE);
+					if(pTarget.FlashlightIsOn())
+						pTarget.FlashlightTurnOff();
+					else
+						pTarget.FlashlightTurnOn();
+				}else{
+					af2fun.Tell("flashlight set: "+pTarget.pev.netname, AFArgs.User, HUD_PRINTCONSOLE);
+					if(AFArgs.GetInt(1) == 0)
+						pTarget.FlashlightTurnOff();
+					else
+						pTarget.FlashlightTurnOn();
+				}
+			}
+		}
+	 }
+	 
+	 void conc(AFBaseArguments@ AFArgs)
+	 {
+		array<CBasePlayer@> pTargets;
+		if(AFBase::GetTargetPlayers(AFArgs.User, HUD_PRINTCONSOLE, AFArgs.GetString(0), TARGETS_NOIMMUNITYCHECK, pTargets))
+		{
+			CBasePlayer@ pTarget = null;
+			for(uint i = 0; i < pTargets.length(); i++)
+			{
+				@pTarget = pTargets[i];
+				g_PlayerFuncs.ConcussionEffect(pTarget, AFArgs.GetFloat(1), AFArgs.GetFloat(2), AFArgs.GetFloat(3));
+				if(AFArgs.GetString(0) == "@me")
+					af2fun.Tell("\"This can't be good for me but I feel great.\"", AFArgs.User, HUD_PRINTCONSOLE);
+				else
+					af2fun.Tell("conc'd: "+pTarget.pev.netname, AFArgs.User, HUD_PRINTCONSOLE);
+			}
+		}
+	 }
 }

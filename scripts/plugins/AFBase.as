@@ -8,8 +8,10 @@
 // |disable original version first)       |
 // ----------------------------------------
 // 		 WARNING: MESSSY CODE AHEAD!
+#include "AFBase/AFBEnums"
 #include "AFBase/AFBUtil"
 #include "AFBase/AFBaseClass"
+#include "AFBase/AFBArgs"
 #include "AFBase/AFBUser"
 #include "AFBase/AFBHandler"
 #include "AFBase/AFBFileIO"
@@ -235,7 +237,7 @@ namespace AFBase
 	
 	bool g_afbIsSafePlugin = false;
 	
-	const string g_afInfo = "AFBase 1.5.0 PUBLIC";
+	const string g_afInfo = "AFBase 1.5.1 PUBLIC";
 	const string g_afServerPrefix = "s_";
 	bool IsSafe()
 	{
