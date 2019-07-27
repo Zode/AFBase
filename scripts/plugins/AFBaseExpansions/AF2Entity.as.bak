@@ -37,7 +37,6 @@ class AF2Entity : AFBaseClass
 		RegisterCommand("ent_worldremove", "", "- Remove all worldcopies", ACCESS_F, @AF2Entity::worldremove);
 		RegisterCommand("ent_mover", "!i", "<0/1 mode> - weapon_entmover, don't define mode to toggle", ACCESS_F, @AF2Entity::entmover, CMD_PRECACHE);
 		RegisterCommand("ent_dumpinfo", "!bs", "<dirty 0/1> <targetname> - dump entity keyvalues into console, if no targetname given it will attempt to trace forwards", ACCESS_F, @AF2Entity::dumpinfo);
-		RegisterCommand("ent_rotatefix", "!s", "<targetname> - attempt to reset originless brush to default position", ACCESS_F, @AF2Entity::rotatefix);
 		
 		g_Hooks.RegisterHook(Hooks::Player::PlayerPreThink, @AF2Entity::PlayerPreThink);
 		g_Hooks.RegisterHook(Hooks::Player::PlayerSpawn, @AF2Entity::PlayerSpawn);
@@ -240,7 +239,6 @@ namespace AF2Entity
 						Vector vecOffset = tr.vecEndPos;
 						float fDist = (vecOffset - vecStart).Length();
 						pCustom.SetKeyvalue("$v_afbentofs", vecOffset);
-						writeEntOfs2(pEntity, pCustom);
 						g_entMoving[pPlayer.entindex()] = Vector(pEntity.entindex(), fDist, 0);
 						if(pEntity.IsPlayer())
 						{
@@ -603,7 +601,6 @@ namespace AF2Entity
 						pEntity.SetOrigin(vecUpdated);
 						g_EntityFuncs.SetOrigin(pEntity, vecUpdated);
 						pCustom.SetKeyvalue("$v_afbentofs", vecNewEnd);
-						writeEntOfs2(pEntity, pCustom);
 						if(pEntity.IsPlayer())
 							pEntity.pev.velocity = Vector(0,0,0);
 							
@@ -750,7 +747,6 @@ namespace AF2Entity
 			Vector vecOffset = tr.vecEndPos;
 			float fDist = (vecOffset - vecStart).Length();
 			pCustom.SetKeyvalue("$v_afbentofs", vecOffset);
-			writeEntOfs2(pEntity, pCustom);
 			g_entMoving[AFArgs.User.entindex()] = Vector(pEntity.entindex(), fDist, 0);
 			if(pEntity.IsPlayer())
 			{
@@ -803,7 +799,6 @@ namespace AF2Entity
 			Vector vecOffset = tr.vecEndPos;
 			float fDist = (vecOffset - vecStart).Length();
 			pCustomCopy.SetKeyvalue("$v_afbentofs", vecOffset);
-			pCustomCopy.SetKeyvalue("$v_afbentofs2", pCopyEntity.pev.origin);
 			g_entMoving[AFArgs.User.entindex()] = Vector(pCopyEntity.entindex(), fDist, 0);
 		}
 		
@@ -816,10 +811,8 @@ namespace AF2Entity
 		int iC = 0;
 		while((@pEntity = g_EntityFuncs.FindEntityByTargetname(pEntity, AFArgs.GetString(0))) !is null)
 		{
-			CustomKeyvalues@ pCustom = pEntity.GetCustomKeyvalues();
 			pEntity.SetOrigin(AFArgs.User.pev.origin);
 			g_EntityFuncs.SetOrigin(pEntity, AFArgs.User.pev.origin);
-			writeEntOfs2(pEntity, pCustom);
 			iC++;
 		}
 		
@@ -888,73 +881,6 @@ namespace AF2Entity
 		af2entity.Tell("Entity created!", AFArgs.User, HUD_PRINTCONSOLE);
 	}
 
-	void rotatefix(AFBaseArguments@ AFArgs)
-	{
-		string sTarget = AFArgs.GetCount() >= 1 ? AFArgs.GetString(0) : "";
-		if(sTarget == "")
-		{
-			CBaseEntity@ pEntity = g_Utility.FindEntityForward(AFArgs.User, 4096);
-			if(pEntity is null)
-			{
-				af2entity.Tell("No entity in front (4096 units)!", AFArgs.User, HUD_PRINTCONSOLE);
-				return;
-			}
-			
-			attemptrotatefix(pEntity, AFArgs.User);
-		}else{
-			int iC = 0;
-			CBaseEntity@ pEntity = null;
-			while((@pEntity = g_EntityFuncs.FindEntityByTargetname(pEntity, sTarget)) !is null)
-			{
-				if(attemptrotatefix(pEntity, AFArgs.User)) iC++;
-			}
-			
-			if(iC > 0)
-				af2entity.Tell(string(iC)+" entities fixed", AFArgs.User, HUD_PRINTCONSOLE);
-			else
-				af2entity.Tell("No entity with that name!", AFArgs.User, HUD_PRINTCONSOLE);
-		}
-	}
-	
-	bool attemptrotatefix(CBaseEntity@ pEntity, CBasePlayer@ user)
-	{
-		if(pEntity.IsPlayer())
-		{
-			af2entity.Tell("Can't fix: target is player!", user, HUD_PRINTCONSOLE);
-			return false;
-		}
-	
-		if(pEntity.IsBSPModel()){
-			CustomKeyvalues@ pCustom = pEntity.GetCustomKeyvalues();
-			if(pCustom.GetKeyvalue("$i_afbentgrab").GetInteger() == 1)
-			{
-				af2entity.Tell("Can't fix: entity being grabbed!", user, HUD_PRINTCONSOLE);
-				return false;
-			}
-			
-			if(!pCustom.GetKeyvalue("$i_afbentisoriginless").Exists()){
-				af2entity.Tell("Can't fix: dont know if entity has origin or not! (entity needs to be rotated at least once)", user, HUD_PRINTCONSOLE);
-				return false;
-			}
-			
-			if(pCustom.GetKeyvalue("$v_afbentofs3").Exists()){
-				Vector afbMove = pCustom.GetKeyvalue("$v_afbentofs3").GetVector();
-				pCustom.SetKeyvalue("$v_afbentofs2", Vector(0,0,0));
-				pEntity.SetOrigin(afbMove);
-				g_EntityFuncs.SetOrigin(pEntity, afbMove);
-				af2entity.Tell("Fixed! Entity sent to X:"+string(afbMove.x)+" Y:"+string(afbMove.y)+" Z:"+string(afbMove.z), user, HUD_PRINTCONSOLE);
-				return true;
-			}
-			
-			af2entity.Tell("Can't fix: impossible error!", user, HUD_PRINTCONSOLE);
-			return false;
-			
-		}else{
-			af2entity.Tell("Can't fix: entity is not a brush!", user, HUD_PRINTCONSOLE);
-			return false;
-		}
-	}
-
 	void rotateabsolute(AFBaseArguments@ AFArgs)
 	{
 		string sTarget = AFArgs.GetCount() >= 4 ? AFArgs.GetString(3) : "";
@@ -968,13 +894,30 @@ namespace AF2Entity
 				return;
 			}
 			
-			actualRotate(AFArgs.User, pEntity, vecRotation, true);
+			if(pEntity.IsPlayer())
+			{
+				af2entity.Tell("Can't rotate: target is player!", AFArgs.User, HUD_PRINTCONSOLE);
+				return;
+			}
+			
+			Vector vecOrigin = pEntity.IsBSPModel() ? getBrushOrigin(pEntity) : pEntity.pev.origin;
+			pEntity.pev.angles = vecRotation;
+			pEntity.pev.v_angle = vecRotation;
+			pEntity.SetOrigin(vecOrigin); // attempt to fix brushes with no originbrush
+			g_EntityFuncs.SetOrigin(pEntity, vecOrigin); // is there a difference between these two? docs say other one is just set origin other one is absolute origin
+			af2entity.Tell("Set entity rotation (angle x:"+string(vecRotation.x)+" y:"+string(vecRotation.y)+" z:"+string(vecRotation.z)+")!", AFArgs.User, HUD_PRINTCONSOLE);
 		}else{
 			int iC = 0;
 			CBaseEntity@ pEntity = null;
 			while((@pEntity = g_EntityFuncs.FindEntityByTargetname(pEntity, sTarget)) !is null)
 			{
-				if(actualRotate(AFArgs.User, pEntity, vecRotation, true)) iC++;
+				Vector vecOrigin = pEntity.IsBSPModel() ? getBrushOrigin(pEntity) : pEntity.pev.origin;
+				pEntity.pev.angles = vecRotation;
+				pEntity.pev.v_angle = vecRotation;
+				pEntity.SetOrigin(vecOrigin); // attempt to fix brushes with no originbrush
+				g_EntityFuncs.SetOrigin(pEntity, vecOrigin); // is there a difference between these two? docs say other one is just set origin other one is absolute origin
+				af2entity.Tell("Set entity rotation (angle x:"+string(vecRotation.x)+" y:"+string(vecRotation.y)+" z:"+string(vecRotation.z)+")!", AFArgs.User, HUD_PRINTCONSOLE);
+				iC++;
 			}
 			
 			if(iC > 0)
@@ -983,7 +926,7 @@ namespace AF2Entity
 				af2entity.Tell("No entity with that name!", AFArgs.User, HUD_PRINTCONSOLE);
 		}
 	}
-	
+
 	void rotate(AFBaseArguments@ AFArgs)
 	{
 		string sTarget = AFArgs.GetCount() >= 4 ? AFArgs.GetString(3) : "";
@@ -997,13 +940,36 @@ namespace AF2Entity
 				return;
 			}
 			
-			actualRotate(AFArgs.User, pEntity, vecRotation, false);
+			if(pEntity.IsPlayer())
+			{
+				af2entity.Tell("Can't rotate: target is player!", AFArgs.User, HUD_PRINTCONSOLE);
+				return;
+			}
+			
+			Vector vecOrigin = pEntity.IsBSPModel() ? getBrushOrigin(pEntity) : pEntity.pev.origin;
+			Vector vecAngles = pEntity.pev.angles;
+			Vector vecOldAngles = pEntity.pev.angles;
+			vecAngles = vecAngles+vecRotation;
+			pEntity.pev.angles = vecAngles;
+			pEntity.pev.v_angle = vecAngles;
+			pEntity.SetOrigin(vecOrigin); // attempt to fix brushes with no originbrush
+			g_EntityFuncs.SetOrigin(pEntity, vecOrigin); // is there a difference between these two? docs say other one is just set origin other one is absolute origin
+			af2entity.Tell("Rotated entity (old angle x:"+string(vecOldAngles.x)+" y:"+string(vecOldAngles.y)+" z:"+string(vecOldAngles.z)+") (new angle x:"+string(vecAngles.x)+" y:"+string(vecAngles.y)+" z:"+string(vecAngles.z)+")!", AFArgs.User, HUD_PRINTCONSOLE);
 		}else{
 			int iC = 0;
 			CBaseEntity@ pEntity = null;
 			while((@pEntity = g_EntityFuncs.FindEntityByTargetname(pEntity, sTarget)) !is null)
 			{
-				if(actualRotate(AFArgs.User, pEntity, vecRotation, false)) iC++;
+				Vector vecOrigin = pEntity.IsBSPModel() ? getBrushOrigin(pEntity) : pEntity.pev.origin;
+				Vector vecAngles = pEntity.pev.angles;
+				Vector vecOldAngles = pEntity.pev.angles;
+				vecAngles = vecAngles+vecRotation;
+				pEntity.pev.angles = vecAngles;
+				pEntity.pev.v_angle = vecAngles;
+				pEntity.SetOrigin(vecOrigin); // attempt to fix brushes with no originbrush
+				g_EntityFuncs.SetOrigin(pEntity, vecOrigin); // is there a difference between these two? docs say other one is just set origin other one is absolute origin
+				af2entity.Tell("Rotated entity (old angle x:"+string(vecOldAngles.x)+" y:"+string(vecOldAngles.y)+" z:"+string(vecOldAngles.z)+") (new angle x:"+string(vecAngles.x)+" y:"+string(vecAngles.y)+" z:"+string(vecAngles.z)+")!", AFArgs.User, HUD_PRINTCONSOLE);
+				iC++;
 			}
 			
 			if(iC > 0)
@@ -1013,158 +979,13 @@ namespace AF2Entity
 		}
 	}
 	
-	bool actualRotate(CBasePlayer@ user, CBaseEntity@ pEntity, Vector vecRotation, bool isAbsolute)
-	{
-		if(pEntity.IsPlayer())
-		{
-			af2entity.Tell("Can't rotate: target is player!", user, HUD_PRINTCONSOLE);
-			return false;
-		}
-		CustomKeyvalues@ pCustom = pEntity.GetCustomKeyvalues();
-		if(pEntity.IsBSPModel()){
-			if(pCustom.GetKeyvalue("$i_afbentgrab").GetInteger() == 1)
-			{
-				af2entity.Tell("Can't rotate: entity being grabbed!", user, HUD_PRINTTALK);
-				return false;
-			}
-			
-			//undo any +grab moves if any.
-			if(pCustom.GetKeyvalue("$v_afbentofs2").Exists()){
-				Vector afbMove = pCustom.GetKeyvalue("$v_afbentofs2").GetVector();
-				if(afbMove.x != 0 || afbMove.y != 0 || afbMove.z != 0){
-					pEntity.SetOrigin(Vector(0,0,0));
-					g_EntityFuncs.SetOrigin(pEntity, Vector(0,0,0));
-				}
-			}
-			
-			//check if originless brush
-			if(!pCustom.GetKeyvalue("$i_afbentisoriginless").Exists()){
-				if(pEntity.pev.origin.x == 0 && pEntity.pev.origin.y == 0 && pEntity.pev.origin.z == 0){
-					pCustom.SetKeyvalue("$i_afbentisoriginless", 1);
-				}else{
-					pCustom.SetKeyvalue("$i_afbentisoriginless", 0);
-				}
-			}
-			
-			//undo rotation if any
-			if(pEntity.pev.angles.x != 0 || pEntity.pev.angles.y != 0 || pEntity.pev.angles.z != 0){
-				pCustom.SetKeyvalue("$v_afbentrotation", pEntity.pev.angles);
-				pEntity.pev.angles = Vector(0,0,0);
-			}
-			
-			solveRotation(user, pEntity, vecRotation, isAbsolute, true);
-			
-			//redo movement
-			if(pCustom.GetKeyvalue("$v_afbentofs2").Exists()){
-				Vector afbMove = pCustom.GetKeyvalue("$v_afbentofs2").GetVector();
-				Vector origin = pEntity.pev.origin;
-				pCustom.SetKeyvalue("$v_afbentofs3", origin);
-				pEntity.SetOrigin(origin + afbMove);
-				g_EntityFuncs.SetOrigin(pEntity, origin + afbMove);
-			}
-		}else{
-			//undo rotation if any
-			if(pEntity.pev.angles.x != 0 || pEntity.pev.angles.y != 0 || pEntity.pev.angles.z != 0){
-				pCustom.SetKeyvalue("$v_afbentrotation", pEntity.pev.angles);
-				pEntity.pev.angles = Vector(0,0,0);
-			}
-			solveRotation(user, pEntity, vecRotation, isAbsolute, false);
-		}
-		
-		return true;
-	}
-	
-	void writeEntOfs2(CBaseEntity@ pEntity, CustomKeyvalues@ pCustom)
-	{
-		Vector offset = Vector(0,0,0);
-		if(pCustom.GetKeyvalue("$v_afbentofs3").Exists()){
-			offset = pCustom.GetKeyvalue("$v_afbentofs3").GetVector();
-		}
-	
-		pCustom.SetKeyvalue("$v_afbentofs2", pEntity.pev.origin-offset);
-	}
-	
-	
-	//thanks to Admer for solving the actual originless rotation out
-	void solveRotation(CBasePlayer@ user, CBaseEntity@ pEntity, Vector vecRotation, bool isAbsolute, bool isBrush)
-	{
-		CustomKeyvalues@ pCustom = pEntity.GetCustomKeyvalues();
-		bool bBrushFuckery = false;
-		Vector vecBrushOrigin = Vector(0,0,0);
-		if(isBrush && pCustom.GetKeyvalue("$i_afbentisoriginless").GetInteger() == 1){
-			bBrushFuckery = true;
-			af2entity.Tell("Now attempting to rotate originless brush..", user, HUD_PRINTCONSOLE);
-			pEntity.SetOrigin(Vector(0,0,0));
-			g_EntityFuncs.SetOrigin(pEntity, Vector(0,0,0));
-			vecBrushOrigin = getBrushOrigin(pEntity, true);
-			if(vecRotation.x != 0 || vecRotation.z != 0){
-				af2entity.Tell("Warning: buggy operation on originless brush: either rotating along pitch or roll - use .ent_move to re-adjust brush.", user, HUD_PRINTCONSOLE);
-			}
-		}
-		
-		Vector additionalRotation = Vector(0,0,0);
-		
-		if(pCustom.GetKeyvalue("$v_afbentrotation").Exists())
-		{
-			additionalRotation = pCustom.GetKeyvalue("$v_afbentrotation").GetVector();
-		}
-		
-		Vector vecOrigin = isBrush ? getBrushOrigin(pEntity, false) : pEntity.pev.origin;
-		Vector vecAngles = pEntity.pev.angles;
-		Vector vecOldAngles = pEntity.pev.angles+additionalRotation;
-		vecAngles = isAbsolute ? vecRotation : vecAngles+vecRotation+additionalRotation;
-		
-		pCustom.SetKeyvalue("$v_afbentrotation", vecAngles);
-		pEntity.pev.angles = vecAngles;
-		pEntity.pev.v_angle = vecAngles;
-		pEntity.SetOrigin(vecOrigin); // attempt to fix brushes with no originbrush
-		g_EntityFuncs.SetOrigin(pEntity, vecOrigin); // is there a difference between these two? docs say other one is just set origin other one is absolute origin
-		
-		if(bBrushFuckery){
-			Vector newOrigin = getBrushOrigin(pEntity, true);
-
-			float r = vecBrushOrigin.Length();
-			Vector anglesFromOrigin;
-			vecBrushOrigin.z = 0; // TODO: fix at a later date.
-			anglesFromOrigin.x = Math.RadiansToDegrees(asin(vecBrushOrigin.z / r));
-			anglesFromOrigin.y = Math.RadiansToDegrees(atan2(vecBrushOrigin.y, vecBrushOrigin.x));
-			anglesFromOrigin.z = 0;
-			//af2entity.Tell("angles from origin x:"+string(anglesFromOrigin.x)+" y:"+string(anglesFromOrigin.y)+" z:"+string(anglesFromOrigin.z), user, HUD_PRINTCONSOLE);
-			Vector endup = pEntity.pev.origin + polarcoords(r, vecAngles+anglesFromOrigin);
-			//af2entity.Tell("endup x:"+string(endup.x)+" y:"+string(endup.y)+" z:"+string(endup.z), user, HUD_PRINTCONSOLE);
-			Vector delta = endup - vecBrushOrigin;
-			//af2entity.Tell("delta x:"+string(delta.x)+" y:"+string(delta.y)+" z:"+string(delta.z), user, HUD_PRINTCONSOLE);
-			delta = pEntity.pev.origin - delta;
-			//af2entity.Tell("pev.origin - delta x:"+string(delta.x)+" y:"+string(delta.y)+" z:"+string(delta.z), user, HUD_PRINTCONSOLE);
-			pEntity.SetOrigin(delta);
-			g_EntityFuncs.SetOrigin(pEntity, delta);
-		}
-		
-		af2entity.Tell("Rotated entity (old angle x:"+string(vecOldAngles.x)+" y:"+string(vecOldAngles.y)+" z:"+string(vecOldAngles.z)+") (new angle x:"+string(vecAngles.x)+" y:"+string(vecAngles.y)+" z:"+string(vecAngles.z)+") (pos x:"+string(pEntity.pev.origin.x)+" y:"+string(pEntity.pev.origin.y)+" z:"+string(pEntity.pev.origin.z)+")!", user, HUD_PRINTCONSOLE);
-	}
-	
-	Vector polarcoords(float r, Vector ang)
-	{
-		Vector ret;
-		ret.x = r * cos(Math.DegreesToRadians(ang.x)) * cos(Math.DegreesToRadians(ang.y));
-		ret.y = r * cos(Math.DegreesToRadians(ang.x)) * sin(Math.DegreesToRadians(ang.y));
-		ret.z = r * sin(Math.DegreesToRadians(ang.x));
-		return ret;
-	}
-	
-	float atan2angle(float x, float y, float a)
-	{
-		return atan2(x,y)+Math.DegreesToRadians(a);
-	}
-	
-	Vector getBrushOrigin(CBaseEntity@ pEntity, bool bUseAbs)
+	Vector getBrushOrigin(CBaseEntity@ pEntity)
 	{
 			Vector vOrigin = pEntity.pev.origin;
-			Vector vMins = bUseAbs ? pEntity.pev.absmin : pEntity.pev.mins;
-			Vector vMaxs = bUseAbs ? pEntity.pev.absmax : pEntity.pev.maxs;
-			
+			Vector vMins = pEntity.pev.mins;
+			Vector vMaxs = pEntity.pev.maxs;
 			for(int i = 0; i < 3; i++)
-				vOrigin[i] += (vMins[i]+vMaxs[i])*0.5f;
+				vOrigin[i] += (vMins[i]+vMaxs[i])*0.5f; //yes multiplication is faster than dividing
 			
 			return vOrigin;
 	}

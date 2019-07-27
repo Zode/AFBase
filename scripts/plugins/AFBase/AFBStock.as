@@ -27,7 +27,7 @@ class AFBaseBase : AFBaseClass
 		RegisterCommand("afb_expansion_start", "s", "(\"expansion SID\") - start expansion", ACCESS_B, @AFBaseBase::extstart, CMD_SERVER);
 		RegisterCommand("afb_access", "s!s", "(target) <accessflags> - get/set accessflags, add + or - before flags to add or remove", ACCESS_B, @AFBaseBase::access, CMD_SERVER); 
 		RegisterCommand("admin_kick", "s!s", "(target) <\"reason\"> - kicks target with reason", ACCESS_E, @AFBaseBase::kick, CMD_SERVER);
-		RegisterCommand("admin_rcon", "s", "(command) - remote console", ACCESS_C, @AFBaseBase::rcon);
+		RegisterCommand("admin_rcon", "s!i", "(command) <noquotes 0/1> - remote console", ACCESS_C, @AFBaseBase::rcon);
 		RegisterCommand("admin_changelevel", "s", "(level) - change level", ACCESS_E, @AFBaseBase::changelevel, CMD_SERVER);
 		RegisterCommand("admin_slay", "s", "(target) - slay target(s)", ACCESS_G, @AFBaseBase::slay, CMD_SERVER);
 		RegisterCommand("admin_slap", "s!i", "(target) <damage> - slap target(s)", ACCESS_G, @AFBaseBase::slap, CMD_SERVER);
@@ -1118,6 +1118,7 @@ namespace AFBaseBase
 	void rcon(AFBaseArguments@ AFArgs)
 	{
 		array<string> aSHold = AFArgs.GetString(0).Split(" ");
+		int noquotes = AFArgs.GetCount() >= 2 ? AFArgs.GetInt(1) : 0;
 		
 		if(aSHold[0] == " " || aSHold[0] == "\n" || aSHold[0] == "\r" || aSHold[0] == "\t")
 					aSHold[0] = aSHold[0].SubString(0, aSHold[0].Length()-1);
@@ -1165,14 +1166,14 @@ namespace AFBaseBase
 		array<string> parsed = sOut.Split(" ");
 		if(parsed.length() >= 2)
 		{
-			sOut = parsed[0]+" \"";
+			sOut = noquotes == 0 ? parsed[0]+" \"" : parsed[0]+" ";
 			for(uint i = 1; i < parsed.length(); i++)
 				if(i > 1)
 					sOut += " "+parsed[i];
 				else
 					sOut += parsed[i];
 			
-			sOut += "\"";
+			sOut += noquotes == 0 ? "\"" : "";
 		}
 		
 		afbasebase.Tell("Executed rcon: "+sOut, AFArgs.User, HUD_PRINTCONSOLE);

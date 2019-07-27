@@ -51,7 +51,7 @@ class AF2Player : AFBaseClass
 		RegisterCommand("say !tag", "!ss", "<targets> <tag> - tag target, visible only for admins. Run without arguments to view list", ACCESS_G, @AF2Player::tagplayer, CMD_PRECACHE|CMD_SUPRESS);
 		RegisterCommand("player_tagfix", "", "- refresh tags on your view, in case something fucks up", ACCESS_G, @AF2Player::tagfix, CMD_PRECACHE);
 		RegisterCommand("say !tagfix", "", "- refresh tags on your view, in case something fucks up", ACCESS_G, @AF2Player::tagfix, CMD_PRECACHE|CMD_SUPRESS);
-		RegisterCommand("player_exec", "ss", "(targets) (\"command\") - execute command on client console", ACCESS_G, @AF2Player::cexec);
+		RegisterCommand("player_exec", "ss!i", "(targets) (\"command\") <noquotes 0/1> - execute command on client console", ACCESS_G, @AF2Player::cexec);
 		RegisterCommand("player_dumpinfo", "s!b", "(targets) <dirty 0/1> - dump player keyvalues into console", ACCESS_F|ACCESS_G, @AF2Player::dumpinfo);
 	
 		g_Hooks.RegisterHook(Hooks::Player::PlayerSpawn, @AF2Player::PlayerSpawn);
@@ -196,16 +196,17 @@ namespace AF2Player
 	{
 		string sOut = AFArgs.GetString(1);
 		array<string> parsed = sOut.Split(" ");
+		int noquotes = AFArgs.GetCount() >= 3 ? AFArgs.GetInt(2) : 0;
 		if(parsed.length() >= 2)
 		{
-			sOut = parsed[0]+" \"";
+			sOut = noquotes == 0 ? parsed[0]+" \"" : parsed[0]+" ";
 			for(uint i = 1; i < parsed.length(); i++)
 				if(i > 1)
 					sOut += " "+parsed[i];
 				else
 					sOut += parsed[i];
 			
-			sOut += "\"";
+			sOut += noquotes == 0 ? "\"" : "";
 		}
 		
 		for(uint i = 0; i < execBlackList.length(); i++)
