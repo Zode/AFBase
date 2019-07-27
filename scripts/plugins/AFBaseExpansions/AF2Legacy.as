@@ -57,7 +57,7 @@ namespace AF2LegacyCode
 	{
 		if(sKey == "classname")
 		{
-			return sstring(pEntity.pev.classname);
+			return string(pEntity.pev.classname);
 		}else if(sKey == "origin")
 		{
 			return sstring(pEntity.pev.origin);
