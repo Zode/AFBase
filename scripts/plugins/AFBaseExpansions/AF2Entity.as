@@ -670,7 +670,7 @@ namespace AF2Entity
 		}
 		
 		string sClass = pEntity.pev.classname;
-		dictionary dKeyvalues = AF2LegacyCode::cleancopy(AF2LegacyCode::reverseGetKeyvalue(pEntity));
+		dictionary dKeyvalues = AF2LegacyCode::prunezero(AF2LegacyCode::cleancopy(AF2LegacyCode::reverseGetKeyvalue(pEntity)));
 		
 		CBaseEntity@ pCopiedEntity = g_EntityFuncs.CreateEntity(sClass, dKeyvalues, false);
 		if(pCopiedEntity is null || !g_EntityFuncs.IsValidEntity(pCopiedEntity.edict()))
