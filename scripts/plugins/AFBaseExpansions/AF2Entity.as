@@ -803,7 +803,7 @@ namespace AF2Entity
 			Vector vecOffset = tr.vecEndPos;
 			float fDist = (vecOffset - vecStart).Length();
 			pCustomCopy.SetKeyvalue("$v_afbentofs", vecOffset);
-			pCustomCopy.SetKeyvalue("$v_afbentofs2", pCopyEntity.pev.origin);
+			writeEntOfs2(pCopyEntity, pCustomCopy);
 			g_entMoving[AFArgs.User.entindex()] = Vector(pCopyEntity.entindex(), fDist, 0);
 		}
 		
