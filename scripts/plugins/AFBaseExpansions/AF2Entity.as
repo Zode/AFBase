@@ -1090,6 +1090,7 @@ namespace AF2Entity
 	{
 		CustomKeyvalues@ pCustom = pEntity.GetCustomKeyvalues();
 		bool bBrushFuckery = false;
+		bool unsupported = false;
 		Vector vecBrushOrigin = Vector(0,0,0);
 		if(isBrush && pCustom.GetKeyvalue("$i_afbentisoriginless").GetInteger() == 1){
 			bBrushFuckery = true;
@@ -1098,6 +1099,8 @@ namespace AF2Entity
 			g_EntityFuncs.SetOrigin(pEntity, Vector(0,0,0));
 			vecBrushOrigin = getBrushOrigin(pEntity, true);
 			if(vecRotation.x != 0 || vecRotation.z != 0){
+				unsupported = true;
+				pCustom.SetKeyvalue("$i_afbrotunsupported", 1);
 				af2entity.Tell("Warning: buggy operation on originless brush: either rotating along pitch or roll - use .ent_move to re-adjust brush.", user, HUD_PRINTCONSOLE);
 			}
 		}
@@ -1114,6 +1117,13 @@ namespace AF2Entity
 		Vector vecOldAngles = pEntity.pev.angles+additionalRotation;
 		vecAngles = isAbsolute ? vecRotation : vecAngles+vecRotation+additionalRotation;
 		
+		if(bBrushFuckery && !unsupported){
+			if(vecOldAngles.x != 0 || vecOldAngles.z != 0){
+				unsupported = true;
+				af2entity.Tell("Warning: buggy operation on originless brush: YAW-fix not applied, brush has pitch or roll rotation applied - use .ent_mvoe to re-adjust brush.", user, HUD_PRINTCONSOLE);
+			}
+		}
+		
 		pCustom.SetKeyvalue("$v_afbentrotation", vecAngles);
 		pEntity.pev.angles = vecAngles;
 		pEntity.pev.v_angle = vecAngles;
@@ -1122,10 +1132,12 @@ namespace AF2Entity
 		
 		if(bBrushFuckery){
 			Vector newOrigin = getBrushOrigin(pEntity, true);
-
+			float absz = (pEntity.pev.absmin.z+pEntity.pev.absmax.z)*0.5f;
+			float z = pEntity.pev.origin.z+(pEntity.pev.mins.z+pEntity.pev.maxs.z)*0.5f;
+			//af2entity.Tell("z:"+string(z)+" absz:"+string(absz)+" zd:"+string(absz-z), user, HUD_PRINTCONSOLE);
 			float r = vecBrushOrigin.Length();
 			Vector anglesFromOrigin;
-			vecBrushOrigin.z = 0; // TODO: fix at a later date.
+			vecBrushOrigin.z = unsupported ? 0 : absz-z;
 			anglesFromOrigin.x = Math.RadiansToDegrees(asin(vecBrushOrigin.z / r));
 			anglesFromOrigin.y = Math.RadiansToDegrees(atan2(vecBrushOrigin.y, vecBrushOrigin.x));
 			anglesFromOrigin.z = 0;
@@ -1159,7 +1171,7 @@ namespace AF2Entity
 	
 	Vector getBrushOrigin(CBaseEntity@ pEntity, bool bUseAbs)
 	{
-			Vector vOrigin = pEntity.pev.origin;
+			Vector vOrigin = bUseAbs ? Vector(0,0,0) : pEntity.pev.origin;
 			Vector vMins = bUseAbs ? pEntity.pev.absmin : pEntity.pev.mins;
 			Vector vMaxs = bUseAbs ? pEntity.pev.absmax : pEntity.pev.maxs;
 			
