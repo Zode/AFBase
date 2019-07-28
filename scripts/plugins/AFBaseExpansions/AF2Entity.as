@@ -1120,7 +1120,7 @@ namespace AF2Entity
 		if(bBrushFuckery && !unsupported){
 			if(vecOldAngles.x != 0 || vecOldAngles.z != 0){
 				unsupported = true;
-				af2entity.Tell("Warning: buggy operation on originless brush: YAW-fix not applied, brush has pitch or roll rotation applied - use .ent_mvoe to re-adjust brush.", user, HUD_PRINTCONSOLE);
+				af2entity.Tell("Warning: buggy operation on originless brush: YAW-fix not applied, brush has pitch or roll rotation applied - use .ent_move to re-adjust brush.", user, HUD_PRINTCONSOLE);
 			}
 		}
 		
