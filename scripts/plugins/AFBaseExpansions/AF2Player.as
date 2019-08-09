@@ -1029,7 +1029,7 @@ namespace AF2Player
 		array<CBasePlayer@> pTargets;
 		HUD targetHud = AFArgs.IsChat ? HUD_PRINTTALK : HUD_PRINTCONSOLE;
 		bool bNoRespawn = AFArgs.GetCount() >= 2 ? AFArgs.GetBool(1) : false;
-		if(AFBase::GetTargetPlayers(AFArgs.User, targetHud, AFArgs.GetString(0), TARGETS_NOALL|TARGETS_NOIMMUNITYCHECK, pTargets))
+		if(AFBase::GetTargetPlayers(AFArgs.User, targetHud, AFArgs.GetString(0), TARGETS_NOIMMUNITYCHECK, pTargets))
 		{
 			CBasePlayer@ pTarget = null;
 			for(uint i = 0; i < pTargets.length(); i++)
@@ -1053,7 +1053,7 @@ namespace AF2Player
 	void position(AFBaseArguments@ AFArgs)
 	{
 		array<CBasePlayer@> pTargets;
-		if(AFBase::GetTargetPlayers(AFArgs.User, HUD_PRINTCONSOLE, AFArgs.GetString(0), TARGETS_NOALL|TARGETS_NOIMMUNITYCHECK, pTargets))
+		if(AFBase::GetTargetPlayers(AFArgs.User, HUD_PRINTCONSOLE, AFArgs.GetString(0), TARGETS_NOIMMUNITYCHECK, pTargets))
 		{
 			CBasePlayer@ pTarget = null;
 			for(uint i = 0; i < pTargets.length(); i++)
