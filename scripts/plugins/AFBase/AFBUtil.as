@@ -71,7 +71,7 @@ namespace AFBase
 		if(inputb.SubString(0, 2) == "r#") // rechecking input
 			inputb = input.SubString(2, input.Length()-2);
 			
-		array<string> inputc = inputb.Split("-");
+		array<string> inputc = inputb.Split("#");
 		
 		if(inputc.length() >= 2)
 		{
@@ -702,5 +702,32 @@ namespace AFBase
 		}
 
 		return ret;
+	}
+	
+	bool RemoveSingleItem(CBasePlayer@ pTarget, string targetWeapon)
+	{
+		//instantly fail if attempting to remove the afb's entmover
+		if(targetWeapon == "weapon_entmover") return false;
+		
+		CBasePlayerItem@ pItem;
+		CBasePlayerWeapon@ pWeapon;
+		for(uint j = 0; j < MAX_ITEM_TYPES; j++)
+		{
+			@pItem = pTarget.m_rgpPlayerItems(j);
+			while(pItem !is null)
+			{
+				@pWeapon = pItem.GetWeaponPtr();
+				
+				if(pWeapon.GetClassname() == targetWeapon)
+				{
+					pTarget.RemovePlayerItem(pItem);
+					return true;
+				}
+				
+				@pItem = cast<CBasePlayerItem@>(pItem.m_hNextItem.GetEntity());
+			}
+		}
+		
+		return false;
 	}
 }

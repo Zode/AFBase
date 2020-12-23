@@ -25,18 +25,18 @@ class AF2Player : AFBaseClass
 		RegisterCommand("player_teleporttome", "s", "(targets) - teleport target(s) to you", ACCESS_G, @AF2Player::teleporttome);
 		RegisterCommand("say !tptome", "s", "(targets) - teleport target(s) to you", ACCESS_G, @AF2Player::teleporttome, CMD_SUPRESS);
 		RegisterCommand("player_teleportpos", "sv", "(targets) (vector) - teleport target(s) to position", ACCESS_G, @AF2Player::teleportpos);
-		RegisterCommand("player_disarm", "s", "(targets) - disarm target(s)", ACCESS_G, @AF2Player::disarm);
+		RegisterCommand("player_disarm", "s!s", "(targets) <weapon> - disarm target(s), don't define weapon to disarm everything", ACCESS_G, @AF2Player::disarm);
 		RegisterCommand("player_getmodel", "s", "(targets) - return target(s) playermodel", ACCESS_Z, @AF2Player::getmodel);
 		RegisterCommand("player_give", "ss", "(targets) (weapon/ammo/item) - give target(s) stuff", ACCESS_G, @AF2Player::give);
 		RegisterCommand("say !give", "ss", "(targets) (weapon/ammo/item) - give target(s) stuff", ACCESS_G, @AF2Player::give, CMD_SUPRESS);
-		RegisterCommand("player_giveall", "s", "(targets) - give target(s) all stock weapons", ACCESS_G, @AF2Player::giveall);
-		RegisterCommand("player_giveammo", "s", "(targets) - give target(s) ammo", ACCESS_G, @AF2Player::giveammo);
-		RegisterCommand("say !giveammo", "s", "(targets) - give target(s) ammo", ACCESS_G, @AF2Player::giveammo, CMD_SUPRESS);
+		RegisterCommand("player_giveall", "!ss", "<targets> <set> - give target(s) all stock weapons, don't define target to view all currently possible sets, set defaults to vanilla", ACCESS_G, @AF2Player::giveall);
+		RegisterCommand("player_giveammo", "s!i", "(targets) <0/1 all> - give target(s) ammo, defaults to all weapons", ACCESS_G, @AF2Player::giveammo);
+		RegisterCommand("say !giveammo", "s!i", "(targets) <0/1 all> - give target(s) ammo, defaults to all weapons", ACCESS_G, @AF2Player::giveammo, CMD_SUPRESS);
 		RegisterCommand("player_givemapcfg", "s", "(targets) - apply map cfg to target(s)", ACCESS_G, @AF2Player::givemapcfg);
 		RegisterCommand("player_position", "s", "(target) - returns target position,", ACCESS_G, @AF2Player::position);
 		RegisterCommand("player_resurrect", "s!b", "(targets) <0/1 no respawn> - resurrect target(s)", ACCESS_G, @AF2Player::resurrect);
 		RegisterCommand("say !resurrect", "s!b", "(targets) <0/1 no respawn> - resurrect target(s)", ACCESS_G, @AF2Player::resurrect, CMD_SUPRESS);
-		RegisterCommand("player_setmaxspeed", "sf", "(targets) (speed) - set target(s) max speed", ACCESS_G, @AF2Player::maxspeed);
+		RegisterCommand("player_maxspeed", "sf", "(targets) (speed) - set target(s) max speed, -1 to restore to default", ACCESS_G, @AF2Player::maxspeed);
 		RegisterCommand("player_keyvalue", "ss!sss", "(targets) (key) <value> <value> <value> - get/set target(s) keyvalue", ACCESS_F|ACCESS_G, @AF2Player::keyvalue);
 		RegisterCommand("player_nosolid", "s!b", "(targets) <0/1 mode> - set target(s) solidity, don't define mode to toggle", ACCESS_G, @AF2Player::nosolid);
 		RegisterCommand("say !nosolid", "s!i", "(targets) <0/1 mode> - set target(s) nosolid mode, don't define mode to toggle", ACCESS_G, @AF2Player::nosolid, CMD_SUPRESS);
@@ -61,7 +61,7 @@ class AF2Player : AFBaseClass
 		if(AF2Player::g_playerThink !is null)
 			g_Scheduler.RemoveTimer(AF2Player::g_playerThink);
 	
-		@AF2Player::g_playerThink = g_Scheduler.SetInterval("playerThink", 0.25f+Math.RandomFloat(0.01f, 0.09f));
+		@AF2Player::g_playerThink = g_Scheduler.SetInterval("playerThink", 0.25f);
 	}
 	
 	void MapInit()
@@ -74,7 +74,7 @@ class AF2Player : AFBaseClass
 		if(AF2Player::g_playerThink !is null)
 			g_Scheduler.RemoveTimer(AF2Player::g_playerThink);
 	
-		@AF2Player::g_playerThink = g_Scheduler.SetInterval("playerThink", 0.25f+Math.RandomFloat(0.01f, 0.09f));
+		@AF2Player::g_playerThink = g_Scheduler.SetInterval("playerThink", 0.25f);
 		
 		dictionary MenuCommands = {
 			{".player_giveammo","give ammo"},
@@ -103,7 +103,7 @@ class AF2Player : AFBaseClass
 		if(AF2Player::g_playerThink !is null)
 			g_Scheduler.RemoveTimer(AF2Player::g_playerThink);
 	
-		@AF2Player::g_playerThink = g_Scheduler.SetInterval("playerThink", 0.25f+Math.RandomFloat(0.01f, 0.09f));
+		@AF2Player::g_playerThink = g_Scheduler.SetInterval("playerThink", 0.25f);
 	}
 	
 	void ReceiveMessageEvent(string sSender, string sIdentifier, dictionary dData)
@@ -701,7 +701,7 @@ namespace AF2Player
 						iFlags &= ~PLAYER_FROZEN;
 						g_playerModes[pTarget.entindex()] = iFlags;
 					}else
-						af2player.Tell("Player "+pTarget.pev.netname+" is not forzen!", AFArgs.User, targetHud);
+						af2player.Tell("Player "+pTarget.pev.netname+" is not frozen!", AFArgs.User, targetHud);
 				}
 			}
 			
@@ -989,9 +989,36 @@ namespace AF2Player
 				{
 					string sReturn = AF2LegacyCode::getKeyValue(pTarget, AFArgs.GetString(1));
 					if(sReturn != "§§§§N/A")
+					{
 						af2player.Tell("Player \""+pTarget.pev.netname+"\" key is \""+sReturn+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+					}
 					else
-						af2player.Tell("Unsupported key in get", AFArgs.User, HUD_PRINTCONSOLE);
+					{
+						//retarded. but works.
+						if(AFArgs.GetString(1).ToLowercase() == "m_ieffectblockweapons")
+							af2player.Tell("Player \""+pTarget.pev.netname+"\" key is \""+string(pTarget.m_iEffectBlockWeapons)+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						else if(AFArgs.GetString(1).ToLowercase() == "m_ieffectinvulnerable")
+							af2player.Tell("Player \""+pTarget.pev.netname+"\" key is \""+string(pTarget.m_iEffectInvulnerable)+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						else if(AFArgs.GetString(1).ToLowercase() == "m_ieffectinvisible")
+							af2player.Tell("Player \""+pTarget.pev.netname+"\" key is \""+string(pTarget.m_iEffectInvisible)+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						else if(AFArgs.GetString(1).ToLowercase() == "m_ieffectnonsolid")
+							af2player.Tell("Player \""+pTarget.pev.netname+"\" key is \""+string(pTarget.m_iEffectNonSolid)+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						else if(AFArgs.GetString(1).ToLowercase() == "m_fleffectrespiration")
+							af2player.Tell("Player \""+pTarget.pev.netname+"\" key is \""+string(pTarget.m_flEffectRespiration)+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						else if(AFArgs.GetString(1).ToLowercase() == "m_fleffectgravity")
+							af2player.Tell("Player \""+pTarget.pev.netname+"\" key is \""+string(pTarget.m_flEffectGravity)+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						else if(AFArgs.GetString(1).ToLowercase() == "m_fleffectfriction")
+							af2player.Tell("Player \""+pTarget.pev.netname+"\" key is \""+string(pTarget.m_flEffectFriction)+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						else if(AFArgs.GetString(1).ToLowercase() == "m_fleffectspeed")
+							af2player.Tell("Player \""+pTarget.pev.netname+"\" key is \""+string(pTarget.m_flEffectSpeed)+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						else if(AFArgs.GetString(1).ToLowercase() == "m_fleffectdamage")
+							af2player.Tell("Player \""+pTarget.pev.netname+"\" key is \""+string(pTarget.m_flEffectDamage)+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						else if(AFArgs.GetString(1).ToLowercase() == "m_ideaths")
+							af2player.Tell("Player \""+pTarget.pev.netname+"\" key is \""+string(pTarget.m_iDeaths)+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						else
+							af2player.Tell("Unsupported key in get", AFArgs.User, HUD_PRINTCONSOLE);
+						
+					}
 				}else{
 					if(AFArgs.GetString(1) == "model" || AFArgs.GetString(1) == "viewmodel" || AFArgs.GetString(1) == "weaponmodel" || AFArgs.GetString(1) == "modelindex")
 					{
@@ -1002,8 +1029,62 @@ namespace AF2Player
 						}
 					}
 					
-					af2player.Tell("Set player \""+pTarget.pev.netname+"\" key to \""+sValout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
-					g_EntityFuncs.DispatchKeyValue(pTarget.edict(), AFArgs.GetString(1), sValout);
+					//round two
+					if(AFArgs.GetString(1).ToLowercase() == "m_ieffectblockweapons")
+					{
+						af2player.Tell("Set player \""+pTarget.pev.netname+"\" key to \""+sValout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						pTarget.m_iEffectBlockWeapons = atoi(sValout);
+					}
+					else if(AFArgs.GetString(1).ToLowercase() == "m_ieffectinvulnerable")
+					{
+						af2player.Tell("Set player \""+pTarget.pev.netname+"\" key to \""+sValout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						pTarget.m_iEffectInvulnerable = atoi(sValout);
+					}
+					else if(AFArgs.GetString(1).ToLowercase() == "m_ieffectinvisible")
+					{
+						af2player.Tell("Set player \""+pTarget.pev.netname+"\" key to \""+sValout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						pTarget.m_iEffectInvisible = atoi(sValout);
+					}
+					else if(AFArgs.GetString(1).ToLowercase() == "m_ieffectnonsolid")
+					{
+						af2player.Tell("Set player \""+pTarget.pev.netname+"\" key to \""+sValout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						pTarget.m_iEffectNonSolid = atoi(sValout);
+					}
+					else if(AFArgs.GetString(1).ToLowercase() == "m_fleffectrespiration")
+					{
+						af2player.Tell("Set player \""+pTarget.pev.netname+"\" key to \""+sValout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						pTarget.m_flEffectRespiration = atof(sValout);
+					}
+					else if(AFArgs.GetString(1).ToLowercase() == "m_fleffectgravity")
+					{
+						af2player.Tell("Set player \""+pTarget.pev.netname+"\" key to \""+sValout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						pTarget.m_flEffectGravity = atof(sValout);
+					}
+					else if(AFArgs.GetString(1).ToLowercase() == "m_fleffectfriction")
+					{
+						af2player.Tell("Set player \""+pTarget.pev.netname+"\" key to \""+sValout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						pTarget.m_flEffectFriction = atof(sValout);
+					}
+					else if(AFArgs.GetString(1).ToLowercase() == "m_fleffectspeed")
+					{
+						af2player.Tell("Set player \""+pTarget.pev.netname+"\" key to \""+sValout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						pTarget.m_flEffectSpeed = atof(sValout);
+					}
+					else if(AFArgs.GetString(1).ToLowercase() == "m_fleffectdamage")
+					{
+						af2player.Tell("Set player \""+pTarget.pev.netname+"\" key to \""+sValout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						pTarget.m_flEffectDamage = atof(sValout);
+					}
+					else if(AFArgs.GetString(1).ToLowercase() == "m_ideaths")
+					{
+						af2player.Tell("Set player \""+pTarget.pev.netname+"\" key to \""+sValout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						pTarget.m_iDeaths = atoi(sValout);
+					}
+					else
+					{
+						af2player.Tell("Set player \""+pTarget.pev.netname+"\" key to \""+sValout+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+						g_EntityFuncs.DispatchKeyValue(pTarget.edict(), AFArgs.GetString(1), sValout);
+					}
 				}
 			}
 		}
@@ -1018,7 +1099,7 @@ namespace AF2Player
 			for(uint i = 0; i < pTargets.length(); i++)
 			{
 				@pTarget = pTargets[i];
-				g_EngineFuncs.SetClientMaxspeed(pTarget.edict(), AFArgs.GetFloat(1));
+				pTarget.SetMaxSpeedOverride(int(AFArgs.GetFloat(1)));
 				af2player.Tell("Set max speed "+string(AFArgs.GetFloat(1))+" to "+pTarget.pev.netname, AFArgs.User, HUD_PRINTCONSOLE);
 			}
 		}
@@ -1040,7 +1121,7 @@ namespace AF2Player
 				g_PlayerFuncs.RespawnPlayer(pTarget, true, true);
 				if(bNoRespawn)
 				{
-					pTarget.pev.origin = oldPos;
+					pTarget.SetOrigin(oldPos);
 					pTarget.pev.fixangle = FAM_FORCEVIEWANGLES;
 					pTarget.pev.angles = oldAngles;
 				}
@@ -1081,6 +1162,7 @@ namespace AF2Player
 
 	void giveammo(AFBaseArguments@ AFArgs)
 	{
+		bool bAllWeapons = AFArgs.GetCount() >= 2 ? AFArgs.GetBool(1) : true;
 		array<CBasePlayer@> pTargets;
 		HUD targetHud = AFArgs.IsChat ? HUD_PRINTTALK : HUD_PRINTCONSOLE;
 		if(AFBase::GetTargetPlayers(AFArgs.User, targetHud, AFArgs.GetString(0), TARGETS_NODEAD|TARGETS_NOIMMUNITYCHECK, pTargets))
@@ -1089,61 +1171,212 @@ namespace AF2Player
 			for(uint i = 0; i < pTargets.length(); i++)
 			{
 				@pTarget = pTargets[i];
-				CBasePlayerWeapon@ activeItem = cast<CBasePlayerWeapon@>(pTarget.m_hActiveItem.GetEntity());
-				//CBasePlayerWeapon@ activeItem = cast<CBasePlayerWeapon@>(pTarget.m_pActiveItem);
-				if(activeItem.PrimaryAmmoIndex() > -1)
-					pTarget.GiveAmmo(activeItem.iMaxAmmo1(), activeItem.pszAmmo1(), activeItem.iMaxAmmo1());
+				if(!pTarget.HasWeapons())
+				{
+					af2player.Tell(string(pTarget.pev.netname)+" has no weapons to give ammo to.", AFArgs.User, targetHud);
+					continue;
+				}
+				
+				bool wasGivenAmmo = false;
+				if(!bAllWeapons)
+				{
+					CBasePlayerWeapon@ activeItem = cast<CBasePlayerWeapon@>(pTarget.m_hActiveItem.GetEntity());
+					if(activeItem.PrimaryAmmoIndex() > -1)
+					{
+						pTarget.GiveAmmo(activeItem.iMaxAmmo1(), activeItem.pszAmmo1(), activeItem.iMaxAmmo1());
+						wasGivenAmmo = true;
+					}
 					
-				if(activeItem.SecondaryAmmoIndex() > -1)
-					pTarget.GiveAmmo(activeItem.iMaxAmmo2(), activeItem.pszAmmo2(), activeItem.iMaxAmmo2());
+					if(activeItem.SecondaryAmmoIndex() > -1)
+					{
+						pTarget.GiveAmmo(activeItem.iMaxAmmo2(), activeItem.pszAmmo2(), activeItem.iMaxAmmo2());
+						wasGivenAmmo = true;
+					}
 					
-				af2player.Tell("Gave ammo to "+pTarget.pev.netname, AFArgs.User, targetHud);
+					if(wasGivenAmmo)
+						af2player.Tell("Gave ammo to "+pTarget.pev.netname+" (holding: "+activeItem.pszName()+")", AFArgs.User, targetHud);
+					else
+						af2player.Tell("Can't give ammo to "+pTarget.pev.netname+", weapon uses no ammo! (holding: "+activeItem.pszName()+")", AFArgs.User, targetHud);
+					
+					continue;
+				}
+				
+				CBasePlayerItem@ pItem;
+				CBasePlayerWeapon@ pWeapon;
+				int amt = 0;
+				for(uint j = 0; j < MAX_ITEM_TYPES; j++)
+				{
+					@pItem = pTarget.m_rgpPlayerItems(j);
+					while(pItem !is null)
+					{
+						@pWeapon = pItem.GetWeaponPtr();
+						wasGivenAmmo = false;
+						if(pWeapon.PrimaryAmmoIndex() > -1)
+						{
+							pTarget.GiveAmmo(pWeapon.iMaxAmmo1(), pWeapon.pszAmmo1(), pWeapon.iMaxAmmo1());
+							wasGivenAmmo = true;
+						}
+						
+						if(pWeapon.SecondaryAmmoIndex() > -1)
+						{
+							pTarget.GiveAmmo(pWeapon.iMaxAmmo2(), pWeapon.pszAmmo2(), pWeapon.iMaxAmmo2());
+							wasGivenAmmo = true;
+						}
+						
+						if(wasGivenAmmo) amt++;
+						
+						@pItem = cast<CBasePlayerItem@>(pItem.m_hNextItem.GetEntity());
+					}
+				}
+					
+				if(amt > 0)
+					af2player.Tell("Gave ammo to "+pTarget.pev.netname+" (potential weapons supplied: "+string(amt)+")", AFArgs.User, targetHud);
+				else
+					af2player.Tell("Didn't give amm to "+pTarget.pev.netname+" (potential weapons supplied: "+string(amt)+"!)", AFArgs.User, targetHud);
 			}
 		}
 	}
 
-	const array<string> player_weaponlist = 
+	const array<string> player_weaponlist_native = 
 	{
-		"weapon_357",
-		"weapon_9mmar",
-		"weapon_9mmhandgun",
-		"weapon_crossbow",
-		"weapon_crowbar",
-		"weapon_displacer",
-		"weapon_eagle",
-		"weapon_egon",
-		"weapon_gauss",
-		"weapon_grapple",
-		"weapon_handgrenade",
-		"weapon_hornetgun",
-		"weapon_m16",
-		"weapon_m249",
-		"weapon_medkit",
-		"weapon_minigun",
-		"weapon_pipewrench",
-		"weapon_rpg",
-		"weapon_satchel",
-		"weapon_shotgun",
-		"weapon_snark",
-		"weapon_sniperrifle",
-		"weapon_sporelauncher",
-		"weapon_tripmine",
+		"weapon_357", "weapon_9mmar", "weapon_9mmhandgun", "weapon_crossbow",
+		"weapon_crowbar", "weapon_displacer", "weapon_eagle", "weapon_egon",
+		"weapon_gauss", "weapon_grapple", "weapon_handgrenade", "weapon_hornetgun",
+		"weapon_m16", "weapon_m249", "weapon_medkit", "weapon_minigun",
+		"weapon_pipewrench", "weapon_rpg", "weapon_satchel", "weapon_shotgun",
+		"weapon_snark", "weapon_sniperrifle", "weapon_sporelauncher", "weapon_tripmine",
 		"weapon_uzi"
 	};
 
+	const array<string> player_weaponlist_ins2 = 
+	{
+		"weapon_ins2ak12", "weapon_ins2ak74", "weapon_ins2akm", "weapon_ins2aks74u",
+		"weapon_ins2asval", "weapon_ins2m1014", "weapon_ins2beretta", "weapon_ins2knuckles",
+		"weapon_ins2c96carb", "weapon_ins2c96", "weapon_ins2coach", "weapon_ins2m1911",
+		"weapon_ins2python", "weapon_ins2deagle", "weapon_ins2dragunov", "weapon_ins2fg42",
+		"weapon_ins2f2000", "weapon_ins2fnfal", "weapon_ins2m249", "weapon_ins2galil",
+		"weapon_ins2g43", "weapon_ins2glock17", "weapon_ins2g3a3", "weapon_ins2mp5k",
+		"weapon_ins2mp7", "weapon_ins2ump45", "weapon_ins2usp", "weapon_ins2ithaca",
+		"weapon_ins2kabar", "weapon_ins2kukri", "weapon_ins2l85a2", "weapon_ins2enfield",
+		"weapon_ins2garand", "weapon_ins2at4", "weapon_ins2m14ebr", "weapon_ins2m16a4",
+		"weapon_ins2stick", "weapon_ins2m4a1", "weapon_ins2m60", "weapon_ins2law",
+		"weapon_ins2m79", "weapon_ins2makarov", "weapon_ins2mg42", "weapon_ins2mk2",
+		"weapon_ins2mosin", "weapon_ins2m590", "weapon_ins2mp18", "weapon_ins2mp40",
+		"weapon_ins2pzfaust", "weapon_ins2pzschreck", "weapon_ins2ppsh41", "weapon_ins2rpg7",
+		"weapon_ins2rpk", "weapon_ins2saiga12", "weapon_ins2sks", "weapon_ins2m29",
+		"weapon_ins2l2a3", "weapon_ins2stg44", "weapon_ins2m1928", "weapon_ins2webley"
+	};
+	
+	const array<string> player_weaponlist_cs16 =
+	{
+		"weapon_p228", "weapon_dualelites", "weapon_csglock18", "weapon_aug",
+		"weapon_c4", "weapon_famas", "weapon_ak47", "weapon_g3sg1",
+		"weapon_p90", "weapon_fiveseven", "weapon_csm249", "weapon_hegrenade",
+		"weapon_galil", "weapon_mac10", "weapon_usp", "weapon_mp5navy",
+		"weapon_ump45", "weapon_csknife", "weapon_sg550", "weapon_sg552",
+		"weapon_m3", "weapon_xm1014", "weapon_awp", "weapon_m4a1",
+		"weapon_csdeagle", "weapon_tmp", "weapon_scout"
+	};
+	
+	const array<string> player_weaponlist_cof =
+	{
+		"weapon_cofswitchblade", "weapon_cofnightstick", "weapon_cofbranch", "weapon_cofsledgehammer",
+		"weapon_cofaxe", "weapon_cofglock", "weapon_cofvp70", "weapon_cofp345",
+		"weapon_cofrevolver", "weapon_cofshotgun", "weapon_cofrifle", "weapon_cofm16",
+		"weapon_cofg43", "weapon_coftmp", "weapon_cofmp5", "weapon_coffamas",
+		"weapon_cofsyringe", "weapon_coflantern", "weapon_cofbooklaser", "weapon_cofcamera",
+		"weapon_cofak74", "weapon_cofberetta", "weapon_cofdeagle", "weapon_cofp228",
+		"weapon_cofglock18", "weapon_cofanaconda", "weapon_cofgolden", "weapon_cofuzi",
+		"weapon_cofl85", "weapon_cofmp5k", "weapon_cofbenelli", "weapon_cofknife",
+		"weapon_cofhammer", "weapon_cofspear", "weapon_cofm76", "v_action"
+	};
+	
+	enum player_weaponlist_available
+	{
+		WEAPONLIST_INS2 = 1,
+		WEAPONLIST_CS16 = 2,
+		WEAPONLIST_COF = 4
+	}
+	
 	void giveall(AFBaseArguments@ AFArgs)
 	{
+		string sTargets = AFArgs.GetCount() > 0 ? AFArgs.GetString(0) : "";
+		string sSet = AFArgs.GetCount() > 1 ? AFArgs.GetString(1) : "vanilla";
+		int availables = 0;
+		if(sTargets == "")
+		{
+			af2player.Tell("Currently available sets (use \"all\" to get literally everything):", AFArgs.User, HUD_PRINTCONSOLE);
+			array<string> plugins = g_PluginManager.GetPluginList();
+			af2player.Tell("vanilla", AFArgs.User, HUD_PRINTCONSOLE);
+			for(uint i = 0; i < plugins.length(); i++)
+			{
+				if(plugins[i].ToLowercase() == "insurgency mod")
+					af2player.Tell("ins2", AFArgs.User, HUD_PRINTCONSOLE);
+				if(plugins[i].ToLowercase() == "counter-strike 1.6 mod")
+					af2player.Tell("cs16", AFArgs.User, HUD_PRINTCONSOLE);
+				if(plugins[i].ToLowercase() == "cry of fear")
+					af2player.Tell("cof", AFArgs.User, HUD_PRINTCONSOLE);
+			}
+			
+			return;
+		}
+		
+		//read out whats available for "all" set... because who knows - someone might be mad enough to run all at once
+		array<string> plugins = g_PluginManager.GetPluginList();
+		for(uint i = 0; i < plugins.length(); i++)
+		{
+			if(plugins[i].ToLowercase() == "insurgency mod")
+				availables |= WEAPONLIST_INS2;
+			if(plugins[i].ToLowercase() == "counter-strike 1.6 mod")
+				availables |= WEAPONLIST_CS16;
+			if(plugins[i].ToLowercase() == "cry of fear")
+				availables |= WEAPONLIST_COF;
+		}
+		
 		array<CBasePlayer@> pTargets;
-		if(AFBase::GetTargetPlayers(AFArgs.User, HUD_PRINTCONSOLE, AFArgs.GetString(0), TARGETS_NODEAD|TARGETS_NOIMMUNITYCHECK, pTargets))
+		if(AFBase::GetTargetPlayers(AFArgs.User, HUD_PRINTCONSOLE, sTargets, TARGETS_NODEAD|TARGETS_NOIMMUNITYCHECK, pTargets))
 		{
 			CBasePlayer@ pTarget = null;
 			for(uint i = 0; i < pTargets.length(); i++)
 			{
 				@pTarget = pTargets[i];
-				af2player.Tell("Gave everything to "+pTarget.pev.netname, AFArgs.User, HUD_PRINTCONSOLE);
-				for(uint j = 0; j < player_weaponlist.length(); j++)
+				af2player.Tell("Gave everything from \""+sSet+"\" set to "+pTarget.pev.netname, AFArgs.User, HUD_PRINTCONSOLE);
+				if(sSet == "vanilla")
 				{
-					pTarget.GiveNamedItem(player_weaponlist[j], 0, 9999);
+					for(uint j = 0; j < player_weaponlist_native.length(); j++)
+						pTarget.GiveNamedItem(player_weaponlist_native[j], 0, 9999);
+				}
+				else if(sSet == "ins2")
+				{
+					for(uint j = 0; j < player_weaponlist_ins2.length(); j++)
+						pTarget.GiveNamedItem(player_weaponlist_ins2[j], 0, 9999);
+				}
+				else if(sSet == "cs16")
+				{
+					for(uint j = 0; j < player_weaponlist_cs16.length(); j++)
+						pTarget.GiveNamedItem(player_weaponlist_cs16[j], 0, 9999);
+				}
+				else if(sSet == "cof")
+				{
+					for(uint j = 0; j < player_weaponlist_cof.length(); j++)
+						pTarget.GiveNamedItem(player_weaponlist_cof[j], 0, 9999);
+				}
+				else if(sSet == "all") // you mad man
+				{
+					for(uint j = 0; j < player_weaponlist_native.length(); j++)
+						pTarget.GiveNamedItem(player_weaponlist_native[j], 0, 9999);
+						
+					if(availables & WEAPONLIST_INS2 > 0)
+						for(uint j = 0; j < player_weaponlist_ins2.length(); j++)
+							pTarget.GiveNamedItem(player_weaponlist_ins2[j], 0, 9999);
+						
+					if(availables & WEAPONLIST_CS16 > 0)
+						for(uint j = 0; j < player_weaponlist_cs16.length(); j++)
+							pTarget.GiveNamedItem(player_weaponlist_cs16[j], 0, 9999);
+						
+					if(availables & WEAPONLIST_COF > 0)
+						for(uint j = 0; j < player_weaponlist_cof.length(); j++)
+							pTarget.GiveNamedItem(player_weaponlist_cof[j], 0, 9999);
 				}
 			}
 		}
@@ -1153,6 +1386,12 @@ namespace AF2Player
 	{
 		array<CBasePlayer@> pTargets;
 		HUD targetHud = AFArgs.IsChat ? HUD_PRINTTALK : HUD_PRINTCONSOLE;
+		if(AFArgs.GetString(1) == "weapon_entmover")
+		{
+			af2player.Tell("Can't give entmover!", AFArgs.User, targetHud);
+			return;
+		}
+		
 		if(AFBase::GetTargetPlayers(AFArgs.User, targetHud, AFArgs.GetString(0), TARGETS_NODEAD|TARGETS_NOIMMUNITYCHECK, pTargets))
 		{
 			CBasePlayer@ pTarget = null;
@@ -1188,6 +1427,13 @@ namespace AF2Player
 
 	void disarm(AFBaseArguments@ AFArgs)
 	{
+		string sTargetWeapon = AFArgs.GetCount() >= 2 ? AFArgs.GetString(1) : "";
+		if(sTargetWeapon == "weapon_entmover")
+		{
+			af2player.Tell("Can't disarm entmover!", AFArgs.User, HUD_PRINTCONSOLE);
+			return;
+		}
+		
 		array<CBasePlayer@> pTargets;
 		if(AFBase::GetTargetPlayers(AFArgs.User, HUD_PRINTCONSOLE, AFArgs.GetString(0), 0, pTargets))
 		{
@@ -1195,8 +1441,47 @@ namespace AF2Player
 			for(uint i = 0; i < pTargets.length(); i++)
 			{
 				@pTarget = pTargets[i];
-				af2player.Tell("Disarmed "+pTarget.pev.netname, AFArgs.User, HUD_PRINTCONSOLE);
-				pTarget.RemoveAllItems(false);
+				if(!pTarget.HasWeapons())
+				{
+					af2player.Tell("Can't disarm "+pTarget.pev.netname+": player has no weapons!", AFArgs.User, HUD_PRINTCONSOLE);
+				}
+				
+				if(sTargetWeapon == "")
+				{
+					//special case behavior so we can remove all weapons except entmover
+					int amt = 0;
+					CBasePlayerItem@ pItem;
+					CBasePlayerItem@ pItemHold;
+					CBasePlayerWeapon@ pWeapon;
+					for(uint j = 0; j < MAX_ITEM_TYPES; j++)
+					{
+						@pItem = pTarget.m_rgpPlayerItems(j);
+						while(pItem !is null)
+						{
+							@pWeapon = pItem.GetWeaponPtr();
+							
+							if(pWeapon.GetClassname() != "weapon_entmover")
+							{
+								@pItemHold = pItem;
+								@pItem = cast<CBasePlayerItem@>(pItem.m_hNextItem.GetEntity());
+								pTarget.RemovePlayerItem(pItemHold);
+								amt++;
+								continue;
+							}
+							
+							@pItem = cast<CBasePlayerItem@>(pItem.m_hNextItem.GetEntity());
+						}
+					}
+					
+					af2player.Tell("Disarmed "+string(amt)+" weapons from "+pTarget.pev.netname, AFArgs.User, HUD_PRINTCONSOLE);
+				}
+				else
+				{
+					if(AFBase::RemoveSingleItem(pTarget, sTargetWeapon))
+						af2player.Tell("Disarmed \""+sTargetWeapon+"\" from "+pTarget.pev.netname, AFArgs.User, HUD_PRINTCONSOLE);
+					else
+						af2player.Tell(string(pTarget.pev.netname)+" has no weapon called \""+sTargetWeapon+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+				}
 			}
 		}
 	}
@@ -1213,7 +1498,7 @@ namespace AF2Player
 			{
 				@pTarget = pTargets[i];
 				af2player.Tell("Teleported "+pTarget.pev.netname+" to X: "+position.x+" Y: "+position.y+" Z: "+position.z, AFArgs.User, targetHud);
-				pTarget.pev.origin = position;
+				pTarget.SetOrigin(position);
 				pTarget.pev.velocity = Vector(0,0,0);
 				pTarget.pev.flFallVelocity = 0.0f;
 			}
@@ -1231,7 +1516,7 @@ namespace AF2Player
 			{
 				@pTarget = pTargets[i];
 				af2player.Tell("Teleported "+pTarget.pev.netname, AFArgs.User, targetHud);
-				pTarget.pev.origin = AFArgs.User.pev.origin;
+				pTarget.SetOrigin(AFArgs.User.pev.origin);
 				pTarget.pev.velocity = Vector(0,0,0);
 				pTarget.pev.fixangle = FAM_FORCEVIEWANGLES;
 				pTarget.pev.angles = AFArgs.User.pev.angles;
@@ -1250,7 +1535,7 @@ namespace AF2Player
 			for(uint i = 0; i < pTargets.length(); i++)
 			{
 				@pTarget = pTargets[i];
-				AFArgs.User.pev.origin = pTarget.pev.origin;
+				AFArgs.User.SetOrigin(pTarget.pev.origin);
 				AFArgs.User.pev.velocity = Vector(0,0,0);
 				AFArgs.User.pev.fixangle = FAM_FORCEVIEWANGLES;
 				AFArgs.User.pev.angles = pTarget.pev.angles;
@@ -1276,7 +1561,7 @@ namespace AF2Player
 			{
 				@pTarget = pTargets[i];
 				af2player.Tell("Teleported "+pTarget.pev.netname, AFArgs.User, targetHud);
-				pTarget.pev.origin = endResult;
+				pTarget.SetOrigin(endResult);
 				pTarget.pev.velocity = Vector(0,0,0);
 				pTarget.pev.flFallVelocity = 0.0f;
 			}

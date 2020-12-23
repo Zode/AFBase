@@ -148,6 +148,7 @@ namespace AFBase
 	
 	bool InsertCommand(string sENameID, string sName, string sReqArgs, string sDescription, int iAccess, AFBaseCommandCallback@ callback, int iFlags)
 	{
+		sName = sName.ToLowercase();
 		AFBaseCommand command;
 		
 		@command.CallBack = callback;
@@ -283,7 +284,7 @@ namespace AFBase
 		string sLowerCommand = parsedCommand[0];
 		sLowerCommand = sLowerCommand.ToLowercase();
 		if(bConsole)
-			@command = cast<AFBaseCommand@>(g_afbConCommandList[parsedCommand[0]]);
+			@command = cast<AFBaseCommand@>(g_afbConCommandList[sLowerCommand]);
 		else
 			@command = cast<AFBaseCommand@>(g_afbChatCommandList[sLowerCommand]);
 		if(command is null)

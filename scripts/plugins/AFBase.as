@@ -75,7 +75,7 @@ void PluginInit()
 			AFBase::HandleAccess(sFixId, pSearch.entindex());
 			AFBase::HandleSprayban(sFixId, pSearch.entindex());
 			AFBase::HandleGagban(sFixId, pSearch.entindex());
-			AFBaseBase::CheckSprayBan(pSearch);
+			//AFBaseBase::CheckSprayBan(pSearch);
 			AFBaseBase::CheckGagBan(pSearch);
 		}
 	}
@@ -121,7 +121,7 @@ void MapInit()
 			AFBase::HandleAccess(sFixId, pSearch.entindex());
 			AFBase::HandleSprayban(sFixId, pSearch.entindex());
 			AFBase::HandleGagban(sFixId, pSearch.entindex());
-			AFBaseBase::CheckSprayBan(pSearch);
+			//AFBaseBase::CheckSprayBan(pSearch);
 			AFBaseBase::CheckGagBan(pSearch);
 		}
 	}
@@ -197,11 +197,10 @@ void AFBaseThink()
 				AFBase::HandleAccess(sFixId, pSearch.entindex());
 				AFBase::HandleSprayban(sFixId, pSearch.entindex());
 				AFBase::HandleGagban(sFixId, pSearch.entindex());
-				AFBaseBase::CheckSprayBan(pSearch);
+				//AFBaseBase::CheckSprayBan(pSearch);
 				AFBaseBase::CheckGagBan(pSearch);
 			}else{
-				AFBase::AFBaseUser afbUser;
-				afbUser = AFBase::GetUser(pSearch);
+				AFBase::AFBaseUser@ afbUser = AFBase::GetUser(pSearch);
 				if(afbUser is null)
 					continue;
 				
@@ -237,7 +236,7 @@ namespace AFBase
 	
 	bool g_afbIsSafePlugin = false;
 	
-	const string g_afInfo = "AFBase 1.5.4 PUBLIC";
+	const string g_afInfo = "AFBase 1.6.0 PUBLIC";
 	const string g_afServerPrefix = "s_";
 	bool IsSafe()
 	{
@@ -338,7 +337,7 @@ namespace AFBase
 			HandleAccess(sFixId, pPlayer.entindex());
 			HandleSprayban(sFixId, pPlayer.entindex());
 			HandleGagban(sFixId, pPlayer.entindex());
-			AFBaseBase::CheckSprayBan(pPlayer);
+			//AFBaseBase::CheckSprayBan(pPlayer);
 			AFBaseBase::CheckGagBan(pPlayer);
 		//}
 		
@@ -475,7 +474,7 @@ namespace AFBase
 				AFBase::HandleAccess(sFixId, pSearch.entindex());
 				AFBase::HandleSprayban(sFixId, pSearch.entindex());
 				AFBase::HandleGagban(sFixId, pSearch.entindex());
-				AFBaseBase::CheckSprayBan(pSearch);
+				//AFBaseBase::CheckSprayBan(pSearch);
 				AFBaseBase::CheckGagBan(pSearch);
 			}
 		}

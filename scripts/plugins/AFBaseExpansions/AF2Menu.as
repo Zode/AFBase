@@ -74,7 +74,15 @@ namespace AF2Menu
 			PlayerMenu@ plrMenu = cast<PlayerMenu@>(g_playerMenus[pPlayer.entindex()]);
 			if(plrMenu.iState == 1)
 			{
-				plrMenu.sTarget = mItem.m_szName;
+				string temp = "";
+				if(!mItem.m_pUserData.retrieve(temp))
+				{
+					af2menu.Tell("Failed to retrieve menu data!", pPlayer, HUD_PRINTTALK);
+					return;
+				}
+				
+				plrMenu.sTarget = temp;
+				
 				g_Scheduler.SetTimeout("delayedCallback", 0.1f, EHandle(pPlayer));
 				return;
 			}else if(plrMenu.iState == 2)
@@ -116,8 +124,8 @@ namespace AF2Menu
 			}
 			
 			executeconsole(pPlayer, sMenuCom, plrMenu.sTarget);
+			//af2menu.Tell("Executing \""+sMenuCom+"\" against \""+plrMenu.sTarget+"\"", pPlayer, HUD_PRINTTALK);
 			
-			//af2menu.Tell("executing "+sMenuCom+" against "+plrMenu.sTarget, pPlayer, HUD_PRINTTALK);
 			return;
 		}
 		
@@ -135,7 +143,7 @@ namespace AF2Menu
 	{
 		PlayerMenu@ plrMenu = cast<PlayerMenu@>(g_playerMenus[i]);
 		@plrMenu.cMenu = CTextMenu(AF2Menu::menuCallback);
-		plrMenu.cMenu.SetTitle("[AFB] Select command: ");
+		plrMenu.cMenu.SetTitle("\\r[AFB]\\w Select command:");
 		//plrMenu.cMenu.AddItem("give ammo", any(".player_giveammo"));
 		array<string> keys = g_commands.getKeys();
 		AFBase::VisualCommand@ visCom;
@@ -158,16 +166,16 @@ namespace AF2Menu
 	{
 		PlayerMenu@ plrMenu = cast<PlayerMenu@>(g_playerMenus[i]);
 		@plrMenu.cMenu = CTextMenu(AF2Menu::menuCallback);
-		plrMenu.cMenu.SetTitle("[AFB] Select target: ");
-		plrMenu.cMenu.AddItem("@all", null);
-		plrMenu.cMenu.AddItem("@me", null);
-		plrMenu.cMenu.AddItem("@last", null);
+		plrMenu.cMenu.SetTitle("\\r[AFB]\\w Select target: \\w");
+		plrMenu.cMenu.AddItem("\\r@all\\w", any("@all"));
+		plrMenu.cMenu.AddItem("\\r@me\\w", any("@me"));
+		plrMenu.cMenu.AddItem("\\r@last\\w", any("@last"));
 		CBasePlayer@ pSearch = null;
 		for(int j = 1; j <= g_Engine.maxClients; j++)
 		{
 			@pSearch = g_PlayerFuncs.FindPlayerByIndex(j);
 			if(pSearch !is null)
-				plrMenu.cMenu.AddItem(pSearch.pev.netname, null);
+				plrMenu.cMenu.AddItem(pSearch.pev.netname, any(AFBase::FormatSafe(AFBase::GetFixedSteamID(pSearch))));
 		}
 		plrMenu.cMenu.Register();
 		plrMenu.iState = 1;

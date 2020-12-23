@@ -18,19 +18,55 @@ class AF2Fun : AFBaseClass
 	{
 		RegisterCommand("fun_fade", "s!iiiffii", "(targets) <r> <g> <b> <fadetime> <holdtime> <alpha> <flags> - fade target(s) screens!", ACCESS_H, @AF2Fun::fade);
 		RegisterCommand("fun_shake", "fff", "<amplitude> <frequency> <duration> - shake everyone's screen!", ACCESS_H, @AF2Fun::shake);
-		RegisterCommand("fun_gibhead", "s", "(targets) - GIBS!!! Spawns head gib on target(s)!", ACCESS_H, @AF2Fun::gibhead);
-		RegisterCommand("fun_gibrand", "s!i", "(targets) <amount> - GIBS!!! Spawns random gibs on target(s)!", ACCESS_H, @AF2Fun::gibrand);
-		RegisterCommand("fun_shootgrenade", "!ff", "<velocitymultipier> <time> - shoot grenades!", ACCESS_H, @AF2Fun::shootgrenade);
-		RegisterCommand("fun_shootportal", "!fff", "<damage> <radius> <velocity> - shoot portals!", ACCESS_H, @AF2Fun::shootportal);
-		RegisterCommand("fun_shootrocket", "!f", "<velocity> - shoot normal RPG rockets!", ACCESS_H, @AF2Fun::shootrocket);
-		RegisterCommand("fun_maplight", "s", "(character from A (darkest) to Z (brightest), M returns to normal) - set map lighting!", ACCESS_H, @AF2Fun::maplight);
+		RegisterCommand("fun_gibhead", "s", "(targets) - GIBS!!! Spawns head gib on target(s)", ACCESS_H, @AF2Fun::gibhead);
+		RegisterCommand("fun_gibrand", "s!i", "(targets) <amount> - GIBS!!! Spawns random gibs on target(s)", ACCESS_H, @AF2Fun::gibrand);
+		RegisterCommand("fun_shootgrenade", "!ff", "<velocitymultipier> <time> - shoot grenades", ACCESS_H, @AF2Fun::shootgrenade);
+		RegisterCommand("fun_shootportal", "!fff", "<damage> <radius> <velocity> - shoot portals", ACCESS_H, @AF2Fun::shootportal);
+		RegisterCommand("fun_shootrocket", "!f", "<velocity> - shoot normal RPG rockets", ACCESS_H, @AF2Fun::shootrocket);
+		RegisterCommand("fun_maplight", "s", "(character from A (darkest) to Z (brightest), M returns to normal) - set map lighting", ACCESS_H, @AF2Fun::maplight);
 		RegisterCommand("fun_flash", "s!i", "(targets) <0/1> - toggle or set target(s) flashlight", ACCESS_H, @AF2Fun::flash);
 		RegisterCommand("fun_conc", "sfff", "(targets) (amplitude) (frequency) (fadetime) - CoNcUsSiOn!", ACCESS_H, @AF2Fun::conc);
+		RegisterCommand("fun_fog", "si!iiii", "(targets) (r) <g> <b> <start> <end> - set level fog, supply target(s) and -1 to disable", ACCESS_H, @AF2Fun::fog);
 	}
 }
 
 namespace AF2Fun
 {
+	void fog(AFBaseArguments@ AFArgs)
+	{
+		int r = AFArgs.GetInt(1);
+		int g = AFArgs.GetCount() >= 3 ? AFArgs.GetInt(2) : 0;
+		int b = AFArgs.GetCount() >= 4 ? AFArgs.GetInt(3) : 0;
+		int fogstart = AFArgs.GetCount() >= 5 ? AFArgs.GetInt(4) : 0;
+		int fogend = AFArgs.GetCount() >= 6 ? AFArgs.GetInt(5) : 1024;
+	
+		array<CBasePlayer@> pTargets;
+		if(AFBase::GetTargetPlayers(AFArgs.User, HUD_PRINTCONSOLE, AFArgs.GetString(0), TARGETS_NOIMMUNITYCHECK, pTargets))
+		{
+			CBasePlayer@ pTarget = null;
+			for(uint i = 0; i < pTargets.length(); i++)
+			{
+				@pTarget = pTargets[i];
+				NetworkMessage msg(MSG_ONE_UNRELIABLE, NetworkMessages::Fog, pTarget.edict());
+					msg.WriteShort(0); //id
+					msg.WriteByte(r<=-1?0:1); //enable state
+					msg.WriteCoord(0); //unused
+					msg.WriteCoord(0); //unused
+					msg.WriteCoord(0); //unused
+					msg.WriteShort(0); //radius
+ 					msg.WriteByte(r>=0?r:0); //r
+					msg.WriteByte(g); //g
+					msg.WriteByte(b); //b
+					msg.WriteShort(fogstart); //start dist
+					msg.WriteShort(fogend); //end dist
+				msg.End();
+				af2fun.Tell("fog applied: "+pTarget.pev.netname, AFArgs.User, HUD_PRINTCONSOLE);
+			}
+		}
+		
+		
+	}
+
 	const array<string> g_validLight = {
 	"q", "w", "e", "r", "t", "y", "u", "i", "o", "p",
 	"a", "s", "d", "f", "g", "h", "j", "k", "l",

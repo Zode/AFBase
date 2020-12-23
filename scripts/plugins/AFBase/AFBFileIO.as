@@ -201,7 +201,7 @@ namespace AFBase
 			if(!bUpdatedEntry && iMode != -1)
 			{
 				aSHold.insertLast(sId+" "+string(iMode));
-				BaseLog("Updated gagban: banned "+sId);
+				BaseLog("Updated gagbanfile: banned "+sId);
 			}
 		
 		@file = g_FileSystem.OpenFile("scripts/plugins/store/AFBaseGagBans.txt", OpenFile::WRITE);

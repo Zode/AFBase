@@ -1,4 +1,5 @@
 #include "AF2Legacy"
+#include "AF2E/entmover"
 
 AF2Entity af2entity;
 
@@ -29,8 +30,8 @@ class AF2Entity : AFBaseClass
 		RegisterCommand("ent_rotateabsolute", "fff!s", "(x) (y) (z) <targetname> - set entity rotation, if no targetname given it will attempt to trace forwards", ACCESS_F, @AF2Entity::rotateabsolute);
 		RegisterCommand("ent_create", "s!s", "(classname) <\"key:value:key:value:key:value\" etc> - create entity, default position at your origin", ACCESS_F|ACCESS_E, @AF2Entity::create);
 		RegisterCommand("ent_movename", "s", "(targetname) - absolute move, entity is placed to your origin", ACCESS_F, @AF2Entity::moveabsolute);
-		RegisterCommand("ent_move", "!b", "- Use without argument to see usage/alias - Grab entity and move it relative to you", ACCESS_F, @AF2Entity::move);
-		RegisterCommand("ent_movecopy", "!b", "- Use without argument to see usage/alias - Copy & grab (copied) entity and move it relative to you", ACCESS_F, @AF2Entity::movecopy);
+		RegisterCommand("ent_move", "!b", "- Use without argument to see usage/alias - Grab entity and move it relative to you", ACCESS_F, @AF2Entity::move, CMD_PRECACHE);
+		RegisterCommand("ent_movecopy", "!b", "- Use without argument to see usage/alias - Copy & grab (copied) entity and move it relative to you", ACCESS_F, @AF2Entity::movecopy, CMD_PRECACHE);
 		RegisterCommand("ent_drop", "", "- Drop entity that you are aiming at to ground", ACCESS_F, @AF2Entity::drop);
 		RegisterCommand("ent_item", "s", "(weapon_/ammo_/item_ name) - Spawn weapon/ammo/item at your location", ACCESS_F, @AF2Entity::item);
 		RegisterCommand("ent_worldcopy", "f!vbbb", "(speed) <angle vector> <0/1 reverse> <0/1 xaxis> <0/1 yaxis> - Create worldcopy", ACCESS_F, @AF2Entity::worldcopy);
@@ -38,16 +39,21 @@ class AF2Entity : AFBaseClass
 		RegisterCommand("ent_mover", "!i", "<0/1 mode> - weapon_entmover, don't define mode to toggle", ACCESS_F, @AF2Entity::entmover, CMD_PRECACHE);
 		RegisterCommand("ent_dumpinfo", "!bs", "<dirty 0/1> <targetname> - dump entity keyvalues into console, if no targetname given it will attempt to trace forwards", ACCESS_F, @AF2Entity::dumpinfo);
 		RegisterCommand("ent_rotatefix", "!s", "<targetname> - attempt to reset originless brush to default position", ACCESS_F, @AF2Entity::rotatefix);
+		RegisterCommand("ent_grid", "i", "(gridsize) - set a grid for snapping, 0 to disable", ACCESS_F, @AF2Entity::grid);
+		RegisterCommand("ent_bbox", "!iiii", "<r> <g> <b> <lifetime> - show the ent's bounding box", ACCESS_F, @AF2Entity::bbox, CMD_PRECACHE);
+		RegisterCommand("ent_bboxname", "s!iiii", "(targetname) <r> <g> <b> <lifetime> - show the specified ent's bounding box", ACCESS_F, @AF2Entity::bboxname, CMD_PRECACHE);
+		RegisterCommand("ent_show", "s", "(x/y/z) - show world direction", ACCESS_F, @AF2Entity::show, CMD_PRECACHE);
 		
 		g_Hooks.RegisterHook(Hooks::Player::PlayerPreThink, @AF2Entity::PlayerPreThink);
 		g_Hooks.RegisterHook(Hooks::Player::PlayerSpawn, @AF2Entity::PlayerSpawn);
+		g_Hooks.RegisterHook(Hooks::Player::PlayerKilled, @AF2Entity::PlayerKilled);
 		
 		AF2Entity::g_entMoving.deleteAll();
 		AF2Entity::g_entWeapon.deleteAll();
 		if(AF2Entity::g_entThink !is null)
 			g_Scheduler.RemoveTimer(AF2Entity::g_entThink);
 	
-		@AF2Entity::g_entThink = g_Scheduler.SetInterval("entThink", 0.075f+Math.RandomFloat(0.0f, 0.05f));
+		@AF2Entity::g_entThink = g_Scheduler.SetInterval("entThink", AF2Entity::_entThink); // 0375f
 	}
 	
 	void MapInit()
@@ -57,13 +63,19 @@ class AF2Entity : AFBaseClass
 		if(AF2Entity::g_entThink !is null)
 			g_Scheduler.RemoveTimer(AF2Entity::g_entThink);
 	
-		@AF2Entity::g_entThink = g_Scheduler.SetInterval("entThink", 0.075f+Math.RandomFloat(0.0f, 0.05f));
+		@AF2Entity::g_entThink = g_Scheduler.SetInterval("entThink", AF2Entity::_entThink);
 		
 		g_Game.PrecacheModel("models/zode/v_entmover.mdl");
 		g_Game.PrecacheModel("models/zode/p_entmover.mdl");
 		g_Game.PrecacheModel("sprites/zbeam4.spr");
+		g_Game.PrecacheModel("sprites/zode/border.spr");
 		g_Game.PrecacheModel("sprites/zerogxplode.spr");
 		g_SoundSystem.PrecacheSound("tfc/items/inv3.wav");
+		
+		g_CustomEntityFuncs.RegisterCustomEntity( "AF2Entity::weapon_entmover", "weapon_entmover" );
+		g_ItemRegistry.RegisterWeapon( "weapon_entmover", "zode" );
+		g_Game.PrecacheOther("weapon_entmover");
+		g_Game.PrecacheGeneric("sprites/zode/weapon_entmover.txt");
 	}
 	
 	void PlayerDisconnectEvent(CBasePlayer@ pUser)
@@ -126,12 +138,261 @@ class AF2Entity : AFBaseClass
 		if(AF2Entity::g_entThink !is null)
 			g_Scheduler.RemoveTimer(AF2Entity::g_entThink);
 	
-		@AF2Entity::g_entThink = g_Scheduler.SetInterval("entThink", 0.075f+Math.RandomFloat(0.0f, 0.05f));
+		@AF2Entity::g_entThink = g_Scheduler.SetInterval("entThink", AF2Entity::_entThink);
 	}
 }
 
 namespace AF2Entity
 {
+	float _entThink = 0.025; // 0375f orig: 0.075+(0<->0.05 variation)
+	float _gridTimer = 0.0f;
+	int _gridAmt = 10;
+	float _gridThresh = _entThink*_gridAmt; 
+
+	void showbeam(Vector position, int mode)
+	{
+		Vector from = position;
+		Vector to = position;
+		switch(mode)
+		{
+			case 0:
+				//from.x -= 128;
+				to.x += 128;
+				
+				makeLine(from, to, 255, 0, 0, 120);
+				break;
+			case 1:
+				//from.y -= 128;
+				to.y += 128;
+				
+				makeLine(from, to, 0, 255, 0, 120);
+				break;
+			case 2:
+				//from.z -= 128;
+				to.z += 128;
+				
+				makeLine(from, to, 0, 0, 255, 120);
+				break;
+		}
+		
+	}
+	
+	void show(AFBaseArguments@ AFArgs)
+	{
+		string mode = AFArgs.GetString(0);
+		
+		g_EngineFuncs.MakeVectors(AFArgs.User.pev.v_angle);
+		Vector vecStart = AFArgs.User.GetGunPosition();
+		TraceResult tr;
+		g_Utility.TraceLine(vecStart, vecStart+g_Engine.v_forward*4096, ignore_monsters, AFArgs.User.edict(), tr);
+		Vector endPoint = tr.vecEndPos - g_Engine.v_forward*48; // pull back a bit
+		
+		bool wasValid = false;
+		for(uint i = 0; i < mode.Length(); i++)
+		{
+			if(mode[i] == "x")
+			{
+				showbeam(endPoint, 0);
+				wasValid = true;
+			}
+			else if(mode[i] == "y")
+			{
+				showbeam(endPoint, 1);
+				wasValid = true;
+			}
+			else if(mode[i] == "z")
+			{
+				showbeam(endPoint, 2);
+				wasValid = true;
+			}
+			else
+			{
+				wasValid = false; // enforce
+				break;	
+			}
+		}
+		
+		if(wasValid)
+			af2entity.Tell("Showing direction(s): "+mode, AFArgs.User, HUD_PRINTCONSOLE);
+		else
+			af2entity.Tell("Invalid direction mode: "+mode, AFArgs.User, HUD_PRINTCONSOLE);
+	}
+	
+	void bboxname(AFBaseArguments@ AFArgs)
+	{
+		int r = AFArgs.GetCount() >= 2 ? AFArgs.GetInt(1) : 255;
+		int g = AFArgs.GetCount() >= 3 ? AFArgs.GetInt(2) : 0;
+		int b = AFArgs.GetCount() >= 4 ? AFArgs.GetInt(3) : 0;
+		int t = AFArgs.GetCount() >= 5 ? AFArgs.GetInt(4) : 20;
+		
+		if(t <= 0)
+			t = 1;
+		if(t > 255)
+			t = 255;
+		
+		int iC = 0;
+		CBaseEntity@ pEntity = null;
+		while((@pEntity = g_EntityFuncs.FindEntityByTargetname(pEntity, AFArgs.GetString(0))) !is null)
+		{
+			Vector extent = (pEntity.pev.maxs-pEntity.pev.mins)/2.0f;
+			Vector center = pEntity.IsBSPModel() ? getBrushOrigin(pEntity, true) : pEntity.IsPlayer() ? pEntity.pev.origin :  pEntity.IsMonster() ? pEntity.pev.origin+Vector(0,0,extent.z) : pEntity.pev.origin;
+			makeBox(center, extent, pEntity.pev.angles, pEntity.IsBSPModel(), r,b,g,t);
+			
+			iC++;
+		}
+		
+		if(iC == 0)
+			af2entity.Tell("No entity with that name!", AFArgs.User, HUD_PRINTCONSOLE);
+		else
+			af2entity.Tell("Showing bbox on "+string(iC)+" ents", AFArgs.User, HUD_PRINTCONSOLE);
+	}
+	
+	void bbox(AFBaseArguments@ AFArgs)
+	{
+		int r = AFArgs.GetCount() >= 1 ? AFArgs.GetInt(0) : 255;
+		int g = AFArgs.GetCount() >= 2 ? AFArgs.GetInt(1) : 0;
+		int b = AFArgs.GetCount() >= 3 ? AFArgs.GetInt(2) : 0;
+		int t = AFArgs.GetCount() >= 4 ? AFArgs.GetInt(3) : 20;
+		
+		if(t <= 0)
+			t = 1;
+		if(t > 255)
+			t = 255;
+	
+		CBaseEntity@ pEntity = g_Utility.FindEntityForward(AFArgs.User, 4096);
+		if(pEntity is null)
+		{
+			af2entity.Tell("No entity in front (4096 units)!", AFArgs.User, HUD_PRINTCONSOLE);
+			return;
+		}
+	
+		Vector extent = (pEntity.pev.maxs-pEntity.pev.mins)/2.0f;
+		Vector center = pEntity.IsBSPModel() ? getBrushOrigin(pEntity, true) : pEntity.IsPlayer() ? pEntity.pev.origin :  pEntity.IsMonster() ? pEntity.pev.origin+Vector(0,0,extent.z) : pEntity.pev.origin;
+		makeBox(center, extent, pEntity.pev.angles, pEntity.IsBSPModel(), r,b,g,t);
+	}
+	
+	void grid(AFBaseArguments@ AFArgs)
+	{
+		CustomKeyvalues@ pCustom = AFArgs.User.GetCustomKeyvalues();
+		pCustom.SetKeyvalue("$f_afbgrid", AFArgs.GetInt(0));
+		if(AFArgs.GetInt(0) <= 0)
+		{
+			af2entity.Tell("Grid disabled", AFArgs.User, HUD_PRINTCONSOLE);
+		}else{
+			af2entity.Tell("Grid is now: "+AFArgs.GetInt(0), AFArgs.User, HUD_PRINTCONSOLE);
+		}
+	}
+
+	void makeBox(Vector center, Vector extent, Vector rot, bool applyRotation, int r, int g, int b, int lifetime)
+	{
+		Vector frontTopLeft = Vector(center.x-extent.x, center.y+extent.y, center.z-extent.z);
+		Vector frontTopRight = Vector(center.x+extent.x, center.y+extent.y, center.z-extent.z);
+		Vector frontBottomLeft = Vector(center.x-extent.x, center.y-extent.y, center.z-extent.z);
+		Vector frontBottomRight = Vector(center.x+extent.x, center.y-extent.y, center.z-extent.z);
+		
+		Vector backTopLeft = Vector(center.x-extent.x, center.y+extent.y, center.z+extent.z);
+		Vector backTopRight = Vector(center.x+extent.x, center.y+extent.y, center.z+extent.z);
+		Vector backBottomLeft = Vector(center.x-extent.x, center.y-extent.y, center.z+extent.z);
+		Vector backBottomRight = Vector(center.x+extent.x, center.y-extent.y, center.z+extent.z);
+		
+		if(applyRotation)
+		{
+			frontTopLeft = transformPoint(frontTopLeft, center, rot);
+			frontTopRight = transformPoint(frontTopRight, center, rot);
+			frontBottomLeft = transformPoint(frontBottomLeft, center, rot);
+			frontBottomRight = transformPoint(frontBottomRight, center, rot);
+			
+			backTopLeft = transformPoint(backTopLeft, center, rot);
+			backTopRight = transformPoint(backTopRight, center, rot);
+			backBottomLeft = transformPoint(backBottomLeft, center, rot);
+			backBottomRight = transformPoint(backBottomRight, center, rot);
+		}
+		
+		makeLine(frontTopLeft, frontTopRight, r,g,b,lifetime);
+		makeLine(frontTopRight, frontBottomRight, r,g,b,lifetime);
+		makeLine(frontBottomRight, frontBottomLeft, r,g,b,lifetime);
+		makeLine(frontBottomLeft, frontTopLeft, r,g,b,lifetime);
+		
+		makeLine(backTopLeft, backTopRight, r,g,b,lifetime);
+		makeLine(backTopRight, backBottomRight, r,g,b,lifetime);
+		makeLine(backBottomRight, backBottomLeft, r,g,b,lifetime);
+		makeLine(backBottomLeft, backTopLeft, r,g,b,lifetime);
+		
+		makeLine(frontTopLeft, backTopLeft, r,g,b,lifetime);
+		makeLine(frontTopRight, backTopRight, r,g,b,lifetime);
+		makeLine(frontBottomRight, backBottomRight, r,g,b,lifetime);
+		makeLine(frontBottomLeft, backBottomLeft, r,g,b,lifetime);
+	}
+
+	Vector transformPoint(Vector point, Vector center, Vector rot)
+	{
+		Vector temp = point-center;
+		return center + Math.RotateVector(temp, rot, Vector(0,0,0));
+		
+	}
+	
+	void makeLine(Vector i, Vector j, int r, int b, int g, int lifetime)
+	{
+		NetworkMessage msg(MSG_BROADCAST, NetworkMessages::SVC_TEMPENTITY, null);
+		
+			msg.WriteByte(TE_BEAMPOINTS);
+			
+			msg.WriteCoord(i.x);
+			msg.WriteCoord(i.y);
+			msg.WriteCoord(i.z);
+			msg.WriteCoord(j.x);
+			msg.WriteCoord(j.y);
+			msg.WriteCoord(j.z);
+			
+			msg.WriteShort(g_EngineFuncs.ModelIndex("sprites/zode/border.spr"));
+			
+			msg.WriteByte(0); //start
+			msg.WriteByte(0); //end
+			msg.WriteByte(lifetime);
+			msg.WriteByte(24); //width
+			msg.WriteByte(0); //noise
+			
+			msg.WriteByte(r);
+			msg.WriteByte(g);
+			msg.WriteByte(b);
+			msg.WriteByte(200);
+			
+			msg.WriteByte(10); // scroll
+		
+		msg.End();
+	}
+	
+	void makeLine2(Vector i, Vector j, int r, int b, int g, int lifetime)
+	{
+		NetworkMessage msg(MSG_BROADCAST, NetworkMessages::SVC_TEMPENTITY, null);
+		
+			msg.WriteByte(TE_BEAMPOINTS);
+			
+			msg.WriteCoord(i.x);
+			msg.WriteCoord(i.y);
+			msg.WriteCoord(i.z);
+			msg.WriteCoord(j.x);
+			msg.WriteCoord(j.y);
+			msg.WriteCoord(j.z);
+			
+			msg.WriteShort(g_EngineFuncs.ModelIndex("sprites/zbeam4.spr"));
+			
+			msg.WriteByte(0); //start
+			msg.WriteByte(0); //end
+			msg.WriteByte(lifetime);
+			msg.WriteByte(12); //width
+			msg.WriteByte(0); //noise
+			
+			msg.WriteByte(r);
+			msg.WriteByte(g);
+			msg.WriteByte(b);
+			msg.WriteByte(255);
+			
+			msg.WriteByte(0); // scroll
+		
+		msg.End();
+	}
+	
 	void dumpinfo(AFBaseArguments@ AFArgs)
 	{
 		string sTarget = AFArgs.GetCount() >= 2 ? AFArgs.GetString(1) : "";
@@ -194,6 +455,14 @@ namespace AF2Entity
 		return HOOK_CONTINUE;
 	}
 	
+	HookReturnCode PlayerKilled(CBasePlayer@ pPlayer, CBaseEntity@ pThing, int iNum)
+	{
+		if(g_entWeapon.exists(pPlayer.entindex()))
+			weaponmover(pPlayer, false, false);
+	
+		return HOOK_CONTINUE;
+	}
+	
 	HookReturnCode PlayerPreThink(CBasePlayer@ pPlayer, uint &out magicnumbers)
 	{
 		if(af2entity.Running)
@@ -205,7 +474,7 @@ namespace AF2Entity
 				
 				if(pPlayer.pev.button & IN_ATTACK > 0)
 				{
-					pPlayer.pev.button &= ~IN_ATTACK;
+					//pPlayer.pev.button &= ~IN_ATTACK;
 					
 					if(!bUsing && !emd.bHolding)
 					{
@@ -289,7 +558,7 @@ namespace AF2Entity
 				
 				if(pPlayer.pev.button & IN_ATTACK2 > 0)
 				{
-					pPlayer.pev.button &= ~IN_ATTACK2;
+					//pPlayer.pev.button &= ~IN_ATTACK2;
 					
 					if(!emd.bHolding2)
 					{
@@ -372,11 +641,10 @@ namespace AF2Entity
 	
 	class EntMoverData
 	{
-		string weaponModel = "models/zode/p_entmover.mdl";
-		string viewModel = "models/zode/v_entmover.mdl";
 		bool bHolding = false;
 		bool bHolding2 = false;
 		Vector vColor = Vector(0,0,0);
+		string prevWeapon = "";
 	}
 	
 	void weaponmover(CBasePlayer@ pPlayer, bool bMode, bool bReset)
@@ -384,50 +652,49 @@ namespace AF2Entity
 		if(bMode)
 		{
 			EntMoverData emd;
-			emd.weaponModel = pPlayer.pev.weaponmodel;
-			emd.viewModel = pPlayer.pev.viewmodel;
 			
-			//pPlayer.m_iEffectBlockWeapons = 1;
-			//if(pPlayer.pev.flags & FL_NOWEAPONS == 0)
-			//	pPlayer.pev.flags |= FL_NOWEAPONS;
-			if(pPlayer.HasWeapons())
+			CBasePlayerWeapon@ activeItem = cast<CBasePlayerWeapon@>(pPlayer.m_hActiveItem.GetEntity());
+			if(activeItem !is null)
 			{
-				CBasePlayerWeapon@ activeItem = cast<CBasePlayerWeapon@>(pPlayer.m_hActiveItem.GetEntity());
-				activeItem.SendWeaponAnim(0,0,0);
-				activeItem.m_flNextPrimaryAttack = 43200.0f;
-				activeItem.m_flNextSecondaryAttack = 43200.0f;
-				activeItem.m_flNextTertiaryAttack = 43200.0f;
-				activeItem.m_flTimeWeaponIdle = 43200.0f;
+				emd.prevWeapon = activeItem.pev.classname;
 			}
 			
-			pPlayer.BlockWeapons(pPlayer);
-			pPlayer.pev.weaponmodel = "models/zode/p_entmover.mdl";
-			pPlayer.pev.viewmodel = "models/zode/v_entmover.mdl";
-			pPlayer.m_iHideHUD = 0;
+			pPlayer.GiveNamedItem("weapon_entmover", 0, 9999);
+			pPlayer.SelectItem("weapon_entmover");
+			
 			g_entWeapon[pPlayer.entindex()] = emd;
 			
 		}else{
 			EntMoverData@ emd = cast<EntMoverData@>(g_entWeapon[pPlayer.entindex()]);
-			pPlayer.UnblockWeapons(pPlayer);
+			
 			if(!bReset)
 			{
-				pPlayer.pev.weaponmodel = emd.weaponModel;
-				pPlayer.pev.viewmodel = emd.viewModel;
+				//special case behavior here so it can remove the entmover
+				CBasePlayerItem@ pItem;
+				CBasePlayerItem@ pItemHold;
+				CBasePlayerWeapon@ pWeapon;
+				for(uint j = 0; j < MAX_ITEM_TYPES; j++)
+				{
+					@pItem = pPlayer.m_rgpPlayerItems(j);
+					while(pItem !is null)
+					{
+						@pWeapon = pItem.GetWeaponPtr();
+						
+						if(pWeapon.GetClassname() == "weapon_entmover")
+						{
+							@pItemHold = pItem;
+							@pItem = cast<CBasePlayerItem@>(pItem.m_hNextItem.GetEntity());
+							pPlayer.RemovePlayerItem(pItemHold);
+							break;
+						}
+						
+						@pItem = cast<CBasePlayerItem@>(pItem.m_hNextItem.GetEntity());
+					}
+				}
+				
+				pPlayer.SelectItem(emd.prevWeapon);
 			}
-			
-			//pPlayer.m_iHideHUD = 0;
-			//pPlayer.m_iEffectBlockWeapons = 0;
-			//if(pPlayer.pev.flags & FL_NOWEAPONS > 0)
-			//	pPlayer.pev.flags &= ~FL_NOWEAPONS;
-			if(pPlayer.HasWeapons())
-			{
-				CBasePlayerWeapon@ activeItem = cast<CBasePlayerWeapon@>(pPlayer.m_hActiveItem.GetEntity());
-				activeItem.SendWeaponAnim(0,0,0);
-				activeItem.m_flNextPrimaryAttack = 0;
-				activeItem.m_flNextSecondaryAttack = 0;
-				activeItem.m_flNextTertiaryAttack = 0;
-				activeItem.m_flTimeWeaponIdle = 0;
-			}
+			pPlayer.SetItemPickupTimes(0);
 			g_entWeapon.delete(pPlayer.entindex());
 		}
 	}
@@ -514,6 +781,13 @@ namespace AF2Entity
 	void item(AFBaseArguments@ AFArgs)
 	{
 		string sEnt = AFArgs.GetString(0);
+		
+		if(sEnt == "weapon_entmover")
+		{
+				af2entity.Tell("Can't spawn entmover!", AFArgs.User, HUD_PRINTCONSOLE);
+				return;
+		}
+		
 		if(sEnt.SubString(0, 7) != "weapon_" && sEnt.SubString(0, 5) != "item_" && sEnt.SubString(0, 5) != "ammo_")
 		{
 			af2entity.Tell("Can't spawn \""+AFArgs.GetString(0)+"\": not allowed!", AFArgs.User, HUD_PRINTCONSOLE);
@@ -578,6 +852,11 @@ namespace AF2Entity
 		entActualMove(AFArgs, iMode);
 	}
 	
+	int round(float f)
+	{
+		return int(floor(f+0.5f));
+	}
+	
 	void entThink()
 	{
 		CBasePlayer@ pSearch = null;
@@ -592,19 +871,133 @@ namespace AF2Entity
 					CBaseEntity@ pEntity = g_EntityFuncs.Instance(int(grabIndex.x));
 					if(pEntity !is null)
 					{
+						CustomKeyvalues@ pUser = pSearch.GetCustomKeyvalues();
+						float grid = 0.0f;
+						if(pUser.GetKeyvalue("$f_afbgrid").Exists())
+							grid = pUser.GetKeyvalue("$f_afbgrid").GetFloat();
+						
+						Vector extent = (pEntity.pev.maxs-pEntity.pev.mins)/2.0f;
+						Vector center = pEntity.IsBSPModel() ? getBrushOrigin(pEntity, true) : pEntity.IsPlayer() ? pEntity.pev.origin :  pEntity.IsMonster() ? pEntity.pev.origin+Vector(0,0,extent.z) : pEntity.pev.origin;
+						
 						CustomKeyvalues@ pCustom = pEntity.GetCustomKeyvalues();
 						Vector vecOffset = pCustom.GetKeyvalue("$v_afbentofs").GetVector();	
-						Vector vecOrigin = pSearch.pev.origin;
+						Vector vecOrigin = pCustom.GetKeyvalue("$v_afbentrealorig").Exists() ? pCustom.GetKeyvalue("$v_afbentrealorig").GetVector() : pEntity.pev.origin;
+						
+						//faster magnitude calculation by stradegically "forgetting" to do sqrt
+						Vector vecDiff = vecOrigin-pEntity.pev.origin;
+						float fDist = vecDiff.x*vecDiff.x + vecDiff.y*vecDiff.y + vecDiff.z*vecDiff.z;
+						if(grid <= 0.0f)
+						{
+							if(fDist>12.0f) // 6 units
+								vecOrigin = pEntity.pev.origin;
+						}else{
+							if(fDist>(grid*grid)+12.0f) // 6 units + grid
+								vecOrigin = pEntity.pev.origin;
+						}
+						
 						g_EngineFuncs.MakeVectors(pSearch.pev.v_angle);
 						Vector vecSrc = pSearch.GetGunPosition();
 						Vector vecNewEnd = vecSrc+(g_Engine.v_forward*grabIndex.y);
-						Vector vecUpdated = pEntity.pev.origin + (vecNewEnd-vecOffset);
+						Vector vecUpdated = vecOrigin + (vecNewEnd-vecOffset);
+						pCustom.SetKeyvalue("$v_afbentrealorig", vecUpdated);
+						if(grid > 0.0f)
+						{
+							for(int j = 0; j < 3; j++)
+								vecUpdated[j] = round((vecUpdated[j])/grid)*grid;
+								//vecUpdated[j] = vecUpdated[j] - (vecUpdated[j]%grid);
+								//vecUpdated[j] = ((vecUpdated[j]+halfGrid)/grid)*grid;
+						
+							if(_gridTimer >= _gridThresh)
+							{
+								_gridTimer = 0.0f;
+								int grids = 4;
+								int gridh = grids/2;
+								
+								int gridvisual = int(grids*grid);
+									
+								int gridt = (_gridAmt/2)-1;
+								//horizontal
+								Vector horizgrid = Vector(0,0,1);
+								Vector verticalxgrid = Vector(1,0,0);
+								
+								if(grid >= 16)
+								{								
+									if(abs(DotProduct(g_Engine.v_forward, horizgrid)) > 0.5f)
+									{
+										for(int j = -gridh; j <= gridh; j++)
+										{
+											Vector startp = center;
+											startp.x = startp.x + (j*grid);
+											startp.y = startp.y + gridvisual;
+											Vector endp = center;
+											endp.x = endp.x + (j*grid);
+											endp.y = endp.y - gridvisual;
+											makeLine2(startp, endp, 255,0,0,gridt);
+											
+											Vector startp2 = center;
+											startp2.y = startp2.y + (j*grid);
+											startp2.x = startp2.x + gridvisual;
+											Vector endp2 = center;
+											endp2.y = endp2.y + (j*grid);
+											endp2.x = endp2.x - gridvisual;
+											makeLine2(startp2, endp2, 255,0,0,gridt);
+										}
+									}else{
+										if(abs(DotProduct(g_Engine.v_forward, verticalxgrid)) > 0.5f)
+										{
+											for(int j = -gridh; j <= gridh; j++)
+											{
+												Vector startp = center;
+												startp.z = startp.z + (j*grid);
+												startp.y = startp.y + gridvisual;
+												Vector endp = center;
+												endp.z = endp.z + (j*grid);
+												endp.y = endp.y - gridvisual;
+												makeLine2(startp, endp, 255,0,0,gridt);
+												
+												Vector startp2 = center;
+												startp2.y = startp2.y + (j*grid);
+												startp2.z = startp2.z + gridvisual;
+												Vector endp2 = center;
+												endp2.y = endp2.y + (j*grid);
+												endp2.z = endp2.z - gridvisual;
+												makeLine2(startp2, endp2, 255,0,0,gridt);
+											}
+										}else{
+											for(int j = -gridh; j <= gridh; j++)
+											{
+												Vector startp = center;
+												startp.z = startp.z + (j*grid);
+												startp.x = startp.x + gridvisual;
+												Vector endp = center;
+												endp.z = endp.z + (j*grid);
+												endp.x = endp.x - gridvisual;
+												makeLine2(startp, endp, 255,0,0,gridt);
+												
+												Vector startp2 = center;
+												startp2.x = startp2.x + (j*grid);
+												startp2.z = startp2.z + gridvisual;
+												Vector endp2 = center;
+												endp2.x = endp2.x + (j*grid);
+												endp2.z = endp2.z - gridvisual;
+												makeLine2(startp2, endp2, 255,0,0,gridt);
+											}
+										}
+									}
+								}
+							}else{
+								_gridTimer += _entThink;
+							}
+						}
+						
 						pEntity.pev.oldorigin = vecUpdated;
 						pEntity.SetOrigin(vecUpdated);
-						g_EntityFuncs.SetOrigin(pEntity, vecUpdated);
+						
+						;
 						pCustom.SetKeyvalue("$v_afbentofs", vecNewEnd);
 						writeEntOfs2(pEntity, pCustom);
-						if(pEntity.IsPlayer())
+						
+						if(pEntity.IsPlayer() || !pEntity.IsBSPModel())
 							pEntity.pev.velocity = Vector(0,0,0);
 							
 						if(g_entWeapon.exists(pSearch.entindex()))
@@ -612,6 +1005,8 @@ namespace AF2Entity
 							EntMoverData@ emd = cast<EntMoverData@>(g_entWeapon[pSearch.entindex()]);
 							if(emd.bHolding)
 							{
+								makeBox(center, extent, pEntity.pev.angles, pEntity.IsBSPModel(), int(emd.vColor.x), int(emd.vColor.y), int(emd.vColor.z), 1);
+							
 								NetworkMessage msg(MSG_BROADCAST, NetworkMessages::SVC_TEMPENTITY, null);
 									msg.WriteByte(TE_BEAMPOINTS);
 									msg.WriteCoord(vecSrc.x);
@@ -623,16 +1018,24 @@ namespace AF2Entity
 									msg.WriteShort(g_EngineFuncs.ModelIndex("sprites/zbeam4.spr"));
 									msg.WriteByte(0);
 									msg.WriteByte(0);
-									msg.WriteByte(2);
+									msg.WriteByte(1);
 									msg.WriteByte(32);
 									msg.WriteByte(0);
+									//rgb->rbg because of zbeam4.spr
 									msg.WriteByte(int(emd.vColor.x));
-									msg.WriteByte(int(emd.vColor.y));
 									msg.WriteByte(int(emd.vColor.z));
-									msg.WriteByte(255);
+									msg.WriteByte(int(emd.vColor.y));
+									msg.WriteByte(200);
 									msg.WriteByte(0);
 								msg.End();
+							}else{ //edge case: mover in hand but using +grab
+								Vector vecColor = pEntity.IsBSPModel() ? pEntity.pev.rendercolor : Vector(0,64,128);
+								//invert R for clarity
+								makeBox(center, extent, pEntity.pev.angles, pEntity.IsBSPModel(), 255-int(vecColor.x), int(vecColor.z), int(vecColor.y), 1);
 							}
+						}else{
+							Vector vecColor = pEntity.IsBSPModel() ? pEntity.pev.rendercolor : Vector(0,64,128);
+							makeBox(center, extent, pEntity.pev.angles, pEntity.IsBSPModel(), 255-int(vecColor.x), int(vecColor.z), int(vecColor.y), 1);
 						}
 					}
 				}
@@ -677,12 +1080,10 @@ namespace AF2Entity
 			return null;
 			
 		g_EntityFuncs.DispatchSpawn(pCopiedEntity.edict());
+		pCopiedEntity.SetOrigin(pEntity.pev.origin);
 		pCopiedEntity.pev.oldorigin = pEntity.pev.origin;
-		pCopiedEntity.pev.origin = pEntity.pev.origin;
 		pCopiedEntity.pev.angles = pEntity.pev.angles;
 		pCopiedEntity.pev.v_angle = pEntity.pev.angles;
-		pCopiedEntity.SetOrigin(pEntity.pev.origin);
-		g_EntityFuncs.SetOrigin(pCopiedEntity, pEntity.pev.origin);
 		return pCopiedEntity;
 	}
 	
@@ -818,7 +1219,6 @@ namespace AF2Entity
 		{
 			CustomKeyvalues@ pCustom = pEntity.GetCustomKeyvalues();
 			pEntity.SetOrigin(AFArgs.User.pev.origin);
-			g_EntityFuncs.SetOrigin(pEntity, AFArgs.User.pev.origin);
 			writeEntOfs2(pEntity, pCustom);
 			iC++;
 		}
@@ -831,6 +1231,12 @@ namespace AF2Entity
 
 	void create(AFBaseArguments@ AFArgs)
 	{
+		if(AFArgs.GetString(0) == "weapon_entmover")
+		{
+				af2entity.Tell("Can't create entmover!", AFArgs.User, HUD_PRINTCONSOLE);
+				return;
+		}
+	
 		string sKeyvalues = AFArgs.GetCount() >= 2 ? AFArgs.GetString(1) : "";
 		dictionary dKeyvalues;
 		bool bOriginDefined = false;
@@ -871,6 +1277,15 @@ namespace AF2Entity
 				}else{
 					dKeyvalues[asParse[i]] = string(asParse[i+1]);
 				}
+			}
+		}
+		
+		if(AFArgs.GetString(0) == "trigger_setcvar")
+		{
+			if(!AFBase::CheckAccess(AFArgs.User, ACCESS_C))
+			{
+				af2entity.Tell("Blocked: you require the access flag C to do this action (\"rcon\" key)!", AFArgs.User, HUD_PRINTCONSOLE);
+				return;
 			}
 		}
 		
@@ -941,7 +1356,6 @@ namespace AF2Entity
 				Vector afbMove = pCustom.GetKeyvalue("$v_afbentofs3").GetVector();
 				pCustom.SetKeyvalue("$v_afbentofs2", Vector(0,0,0));
 				pEntity.SetOrigin(afbMove);
-				g_EntityFuncs.SetOrigin(pEntity, afbMove);
 				af2entity.Tell("Fixed! Entity sent to X:"+string(afbMove.x)+" Y:"+string(afbMove.y)+" Z:"+string(afbMove.z), user, HUD_PRINTCONSOLE);
 				return true;
 			}
@@ -1033,7 +1447,6 @@ namespace AF2Entity
 				Vector afbMove = pCustom.GetKeyvalue("$v_afbentofs2").GetVector();
 				if(afbMove.x != 0 || afbMove.y != 0 || afbMove.z != 0){
 					pEntity.SetOrigin(Vector(0,0,0));
-					g_EntityFuncs.SetOrigin(pEntity, Vector(0,0,0));
 				}
 			}
 			
@@ -1060,7 +1473,6 @@ namespace AF2Entity
 				Vector origin = pEntity.pev.origin;
 				pCustom.SetKeyvalue("$v_afbentofs3", origin);
 				pEntity.SetOrigin(origin + afbMove);
-				g_EntityFuncs.SetOrigin(pEntity, origin + afbMove);
 			}
 		}else{
 			//undo rotation if any
@@ -1096,7 +1508,6 @@ namespace AF2Entity
 			bBrushFuckery = true;
 			af2entity.Tell("Now attempting to rotate originless brush..", user, HUD_PRINTCONSOLE);
 			pEntity.SetOrigin(Vector(0,0,0));
-			g_EntityFuncs.SetOrigin(pEntity, Vector(0,0,0));
 			vecBrushOrigin = getBrushOrigin(pEntity, true);
 			if(vecRotation.x != 0 || vecRotation.z != 0){
 				unsupported = true;
@@ -1128,7 +1539,6 @@ namespace AF2Entity
 		pEntity.pev.angles = vecAngles;
 		pEntity.pev.v_angle = vecAngles;
 		pEntity.SetOrigin(vecOrigin); // attempt to fix brushes with no originbrush
-		g_EntityFuncs.SetOrigin(pEntity, vecOrigin); // is there a difference between these two? docs say other one is just set origin other one is absolute origin
 		
 		if(bBrushFuckery){
 			Vector newOrigin = getBrushOrigin(pEntity, true);
@@ -1137,7 +1547,7 @@ namespace AF2Entity
 			//af2entity.Tell("z:"+string(z)+" absz:"+string(absz)+" zd:"+string(absz-z), user, HUD_PRINTCONSOLE);
 			float r = vecBrushOrigin.Length();
 			Vector anglesFromOrigin;
-			vecBrushOrigin.z = unsupported ? 0 : absz-z;
+			vecBrushOrigin.z = unsupported ? 0.000001 : absz-z; // 0.000001 for fixing div by zero issue
 			anglesFromOrigin.x = Math.RadiansToDegrees(asin(vecBrushOrigin.z / r));
 			anglesFromOrigin.y = Math.RadiansToDegrees(atan2(vecBrushOrigin.y, vecBrushOrigin.x));
 			anglesFromOrigin.z = 0;
@@ -1149,7 +1559,6 @@ namespace AF2Entity
 			delta = pEntity.pev.origin - delta;
 			//af2entity.Tell("pev.origin - delta x:"+string(delta.x)+" y:"+string(delta.y)+" z:"+string(delta.z), user, HUD_PRINTCONSOLE);
 			pEntity.SetOrigin(delta);
-			g_EntityFuncs.SetOrigin(pEntity, delta);
 		}
 		
 		af2entity.Tell("Rotated entity (old angle x:"+string(vecOldAngles.x)+" y:"+string(vecOldAngles.y)+" z:"+string(vecOldAngles.z)+") (new angle x:"+string(vecAngles.x)+" y:"+string(vecAngles.y)+" z:"+string(vecAngles.z)+") (pos x:"+string(pEntity.pev.origin.x)+" y:"+string(pEntity.pev.origin.y)+" z:"+string(pEntity.pev.origin.z)+")!", user, HUD_PRINTCONSOLE);
@@ -1183,6 +1592,15 @@ namespace AF2Entity
 
 	void triggerrange(AFBaseArguments@ AFArgs)
 	{
+		if(AFArgs.GetString(0) == "trigger_setcvar")
+		{
+			if(!AFBase::CheckAccess(AFArgs.User, ACCESS_C))
+			{
+				af2entity.Tell("Blocked: you require the access flag C to do this action (\"rcon\" key)!", AFArgs.User, HUD_PRINTCONSOLE);
+				return;
+			}
+		}
+	
 		int iC = 0;
 		CBaseEntity@ pEntity = null;
 		while((@pEntity = g_EntityFuncs.FindEntityInSphere(pEntity, AFArgs.User.pev.origin, AFArgs.GetFloat(1), AFArgs.GetString(0), "classname")) !is null)
@@ -1194,7 +1612,7 @@ namespace AF2Entity
 		if(iC > 0)
 			af2entity.Tell(string(iC)+" entities triggered!", AFArgs.User, HUD_PRINTCONSOLE);
 		else
-			af2entity.Tell("No entity with that name!", AFArgs.User, HUD_PRINTCONSOLE);
+			af2entity.Tell("No entity with that classname!", AFArgs.User, HUD_PRINTCONSOLE);
 	}
 
 	void trigger(AFBaseArguments@ AFArgs)
@@ -1218,6 +1636,15 @@ namespace AF2Entity
 			pEntity.Use(AFArgs.User, AFArgs.User, USE_TOGGLE, 0);
 			af2entity.Tell("Triggered entity!", AFArgs.User, HUD_PRINTCONSOLE);
 		}else{
+			if(AFArgs.GetString(0) == "trigger_setcvar")
+			{
+				if(!AFBase::CheckAccess(AFArgs.User, ACCESS_C))
+				{
+					af2entity.Tell("Blocked: you require the access flag C to do this action (\"rcon\" key)!", AFArgs.User, HUD_PRINTCONSOLE);
+					return;
+				}
+			}
+		
 			int iC = 0;
 			CBaseEntity@ pEntity = null;
 			while((@pEntity = g_EntityFuncs.FindEntityByTargetname(pEntity, sTarget)) !is null)
@@ -1254,6 +1681,15 @@ namespace AF2Entity
 			g_EntityFuncs.Remove(pEntity);
 			af2entity.Tell("Killed entity!", AFArgs.User, HUD_PRINTCONSOLE);
 		}else{
+			if(AFArgs.GetString(0) == "trigger_setcvar")
+			{
+				if(!AFBase::CheckAccess(AFArgs.User, ACCESS_C))
+				{
+					af2entity.Tell("Blocked: you require the access flag C to do this action (\"rcon\" key)!", AFArgs.User, HUD_PRINTCONSOLE);
+					return;
+				}
+			}
+		
 			int iC = 0;
 			CBaseEntity@ pEntity = null;
 			while((@pEntity = g_EntityFuncs.FindEntityByTargetname(pEntity, sTarget)) !is null)
@@ -1284,6 +1720,16 @@ namespace AF2Entity
 			sValout = sVal;
 			
 		bool bHasE = AFBase::CheckAccess(AFArgs.User, ACCESS_E);
+		
+		if(AFArgs.GetString(0) == "trigger_setcvar")
+		{
+			if(!AFBase::CheckAccess(AFArgs.User, ACCESS_C))
+			{
+				af2entity.Tell("Blocked: you require the access flag C to do this action (\"rcon\" key)!", AFArgs.User, HUD_PRINTCONSOLE);
+				return;
+			}
+		}
+		
 		while((@pEntity = g_EntityFuncs.FindEntityInSphere(pEntity, AFArgs.User.pev.origin, AFArgs.GetFloat(1), AFArgs.GetString(0), "classname")) !is null)
 		{
 			if(pEntity.IsPlayer())
@@ -1322,7 +1768,7 @@ namespace AF2Entity
 		if(iC > 0)
 			af2entity.Tell(string(iC)+" entities found", AFArgs.User, HUD_PRINTCONSOLE);
 		else
-			af2entity.Tell("No entity with that name!", AFArgs.User, HUD_PRINTCONSOLE);
+			af2entity.Tell("No entity with that classname!", AFArgs.User, HUD_PRINTCONSOLE);
 	}
 
 	void keyvaluename(AFBaseArguments@ AFArgs)
@@ -1338,6 +1784,15 @@ namespace AF2Entity
 			sValout = sVal+" "+sValY+" "+sValZ;
 		else
 			sValout = sVal;
+			
+		if(AFArgs.GetString(0) == "trigger_setcvar")
+		{
+			if(!AFBase::CheckAccess(AFArgs.User, ACCESS_C))
+			{
+				af2entity.Tell("Blocked: you require the access flag C to do this action (\"rcon\" key)!", AFArgs.User, HUD_PRINTCONSOLE);
+				return;
+			}
+		}
 			
 		bool bHasE = AFBase::CheckAccess(AFArgs.User, ACCESS_E);
 		while((@pEntity = g_EntityFuncs.FindEntityByTargetname(pEntity, AFArgs.GetString(0))) !is null)

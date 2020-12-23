@@ -43,10 +43,12 @@ class AFBaseBase : AFBaseClass
 		RegisterCommand("afb_peek", "s", "(targets) - peeks into internal AFB info", ACCESS_B, @AFBaseBase::peek, CMD_SERVER);
 		RegisterCommand("afb_disconnected", "!b", "<0/1 don't shorten nicks> - Show recently disconnected client information", ACCESS_E, @AFBaseBase::disconnected, CMD_SERVER);
 		RegisterCommand("afb_last", "!b", "<0/1 don't shorten nicks> - (alias for afb_disconnected) Show recently disconnected client information", ACCESS_E, @AFBaseBase::disconnected, CMD_SERVER);
+		RegisterCommand("afb_whatsnew", "", "- show changelog for this version", ACCESS_Z, @AFBaseBase::whatsnew, CMD_SERVER);
 		
 		@AFBaseBase::cvar_iBanMaxMinutes = CCVar("afb_maxban", 10080, "maximum time for bans in minutes (default: 10080)", ConCommandFlag::AdminOnly, CVarCallback(this.afb_cvar_ibanmaxminutes));
 		
 		g_Hooks.RegisterHook(Hooks::Player::PlayerDecal, @AFBaseBase::PlayerDecalHook);
+		g_Hooks.RegisterHook(Hooks::Player::PlayerPreDecal, @AFBaseBase::PlayerPreDecalHook);
 		g_Hooks.RegisterHook(Hooks::Player::PlayerSpawn, @AFBaseBase::PlayerSpawn);
 		g_Hooks.RegisterHook(Hooks::Player::ClientSay, @AFBaseBase::PlayerTalk);
 	}
@@ -85,6 +87,38 @@ class AFBaseBase : AFBaseClass
 
 namespace AFBaseBase
 {
+	void whatsnew(AFBaseArguments@ AFArgs)
+	{
+		File@ file = g_FileSystem.OpenFile("scripts/plugins/AFBase/chlog.txt", OpenFile::READ);
+		
+		if(file !is null && file.IsOpen())
+		{
+			TellLongCustom("----AdminFuckeryBase: What's new------------------------------------------------\n", AFArgs.User, HUD_PRINTCONSOLE);
+			TellLongCustom("AFB Version: "+AFBase::g_afInfo+"\nChangelog:\n", AFArgs.User, HUD_PRINTCONSOLE);
+			
+			while(!file.EOFReached())
+			{
+				string sLine;
+				file.ReadLine(sLine);
+				//fix for linux
+				string sFix = sLine.SubString(sLine.Length()-1,1);
+				if(sFix == " " || sFix == "\n" || sFix == "\r" || sFix == "\t")
+					sLine = sLine.SubString(0, sLine.Length()-1);
+					
+				if(sLine.IsEmpty())
+					continue;
+					
+				TellLongCustom(sLine+"\n", AFArgs.User, HUD_PRINTCONSOLE);
+			}
+			
+			TellLongCustom("--------------------------------------------------------------------------------\n", AFArgs.User, HUD_PRINTCONSOLE);
+			file.Close();
+		}else{
+			AFBase::BaseLog("Installation error: cannot locate changelog file");
+			afbasebase.Tell("Installation error: cannot locate changelog file", AFArgs.User, HUD_PRINTCONSOLE);
+		}
+	}
+
 	class DisconnectedUser
 	{
 		string sTime;
@@ -244,7 +278,7 @@ namespace AFBaseBase
 			for(uint i = 0; i < pTargets.length(); i++)
 			{
 				@pTarget = pTargets[i];
-				AFBase::AFBaseUser afbUser = AFBase::GetUser(pTarget);
+				AFBase::AFBaseUser@ afbUser = AFBase::GetUser(pTarget);
 				if(afbUser is null)
 				{
 					afbasebase.Tell("Can't peek: AFBaseUser class missing!", AFArgs.User, HUD_PRINTCONSOLE);
@@ -327,9 +361,9 @@ namespace AFBaseBase
 				string sFixId = AFBase::FormatSafe(AFBase::GetFixedSteamID(pTarget));
 				AFBase::UpdateGagFile(sFixId, -1);
 				
-				afbasebase.TellAll(AFArgs.FixedNick+" ungagged player \""+AFArgs.GetString(0)+"\"", HUD_PRINTTALK);
-				afbasebase.Tell("Ungagged \""+AFArgs.GetString(0)+"\"", AFArgs.User, HUD_PRINTCONSOLE);
-				afbasebase.Log(AFArgs.FixedNick+" ungagged \""+AFArgs.GetString(0)+"\"");
+				afbasebase.TellAll(AFArgs.FixedNick+" ungagged player \""+pTarget.pev.netname+"\"", HUD_PRINTTALK);
+				afbasebase.Tell("Ungagged \""+pTarget.pev.netname+"\"", AFArgs.User, HUD_PRINTCONSOLE);
+				afbasebase.Log(AFArgs.FixedNick+" ungagged \""+pTarget.pev.netname+"\"");
 			}
 		}
 	}
@@ -355,28 +389,35 @@ namespace AFBaseBase
 	void CheckGagBan(CBasePlayer@ pPlayer)
 	{
 		if(pPlayer is null)
-			return;
-			
-		if(AFBase::g_afbUserList.exists(pPlayer.entindex()))
 		{
-			AFBase::AFBaseUser afbUser = AFBase::GetUser(pPlayer);
-			if(afbUser.iGagMode >= 2)
+			//since the new ban system doesn't actually care about players but rather the indexes and is cleared when a player disconnects,
+			// we just check & apply each index against each other
+			for(int i = 1; i < g_Engine.maxClients; i++)
 			{
-				CBasePlayer@ pSearch = null;
-				for(int i = 1; i <= g_Engine.maxClients; i++)
-				{
-					if(pSearch !is null)
-						g_EngineFuncs.Voice_SetClientListening(pSearch.entindex(), pPlayer.entindex(), false);
-				}
-			}else{
-				CBasePlayer@ pSearch = null;
-				for(int i = 1; i <= g_Engine.maxClients; i++)
-				{
-					if(pSearch !is null)
-						g_EngineFuncs.Voice_SetClientListening(pSearch.entindex(), pPlayer.entindex(), true);
-				}
+				AFBase::AFBaseUser@ afbUser = AFBase::GetUser(i);
+				if(afbUser is null) continue;
+				
+				if(afbUser.iGagMode >= 2) // voice or all
+					for(int j = 1; j < g_Engine.maxClients; j++)
+						g_EngineFuncs.Voice_SetClientListening(j, i, true);
+				else
+					for(int j = 1; j < g_Engine.maxClients; j++)
+						g_EngineFuncs.Voice_SetClientListening(j, i, false);
 			}
+			
+			return;
 		}
+		
+		//route for gag/ungag commands
+		AFBase::AFBaseUser@ afbUser = AFBase::GetUser(pPlayer);
+		if(afbUser is null) return; // shouldn't happen but is a possibility
+		
+		if(afbUser.iGagMode >= 2)
+			for(int i = 1; i <= g_Engine.maxClients; i++)
+				g_EngineFuncs.Voice_SetClientListening(i, pPlayer.entindex(), true);
+		else
+			for(int i = 1; i <= g_Engine.maxClients; i++)
+				g_EngineFuncs.Voice_SetClientListening(i, pPlayer.entindex(), false);
 	}
 
 	void gag(AFBaseArguments@ AFArgs)
@@ -427,9 +468,9 @@ namespace AFBaseBase
 				string sFixId = AFBase::FormatSafe(AFBase::GetFixedSteamID(pTarget));
 				AFBase::UpdateGagFile(sFixId, iMode);
 				
-				afbasebase.TellAll(AFArgs.FixedNick+" gagged player \""+AFArgs.GetString(0)+"\" (mode: "+sOutMode+")", HUD_PRINTTALK);
-				afbasebase.Tell("Gagged \""+AFArgs.GetString(0)+"\" (mode: "+sOutMode+")", AFArgs.User, HUD_PRINTCONSOLE);
-				afbasebase.Log(AFArgs.FixedNick+" gagged \""+AFArgs.GetString(0)+"\" (mode: "+sOutMode+" )");
+				afbasebase.TellAll(AFArgs.FixedNick+" gagged player \""+pTarget.pev.netname+"\" (mode: "+sOutMode+")", HUD_PRINTTALK);
+				afbasebase.Tell("Gagged \""+pTarget.pev.netname+"\" (mode: "+sOutMode+")", AFArgs.User, HUD_PRINTCONSOLE);
+				afbasebase.Log(AFArgs.FixedNick+" gagged \""+pTarget.pev.netname+"\" (mode: "+sOutMode+" )");
 			}
 		}
 	}
@@ -437,19 +478,20 @@ namespace AFBaseBase
 	HookReturnCode PlayerSpawn(CBasePlayer@ pPlayer)
 	{
 		EHandle ePlayer = pPlayer;
-		g_Scheduler.SetTimeout("PlayerPostSpawn", 0.1f, ePlayer);
+		g_Scheduler.SetTimeout("PlayerPostSpawn", 0.01f, ePlayer);
 		
 		return HOOK_CONTINUE;
 	}
 	
 	void PlayerPostSpawn(EHandle ePlayer)
 	{
-		if(ePlayer)
+		CheckGagBan(null); //trigger a check against all indexes so that gag bans are applied for players that join later than when the gag happened
+		/*if(ePlayer)
 		{
 			CBaseEntity@ pPlayer = ePlayer;
-			CheckSprayBan(cast<CBasePlayer@>(pPlayer));
+			//CheckSprayBan(cast<CBasePlayer@>(pPlayer));
 			CheckGagBan(cast<CBasePlayer@>(pPlayer));
-		}
+		}*/
 	}
 	
 	void CheckSprayBan(CBasePlayer@ pTarget)
@@ -465,6 +507,26 @@ namespace AFBaseBase
 			else
 				pTarget.m_flNextDecalTime = Math.FLOAT_MIN;
 		}
+	}
+	
+	HookReturnCode PlayerPreDecalHook(CBasePlayer@ pPlayer, const TraceResult& in trace, bool& out bResult)
+	{
+		if(AFBase::g_afbUserList.exists(pPlayer.entindex()))
+		{
+			AFBase::AFBaseUser afbUser = AFBase::GetUser(pPlayer);
+			if(afbUser.bSprayBan)
+			{
+				bResult = false;
+			}
+			else
+			{
+				bResult = true;
+			}
+		}else{
+			bResult = true;
+		}
+		
+		return HOOK_CONTINUE;
 	}
 	
 	void bandecals(AFBaseArguments@ AFArgs)
@@ -496,7 +558,7 @@ namespace AFBaseBase
 				
 				string sFixId = AFBase::FormatSafe(AFBase::GetFixedSteamID(pTarget));
 				AFBase::UpdateSprayFile(sFixId, bMode);
-				CheckSprayBan(pTarget);
+				//CheckSprayBan(pTarget);
 				
 				if(bMode)
 				{
@@ -599,11 +661,17 @@ namespace AFBaseBase
 		int iMinutes = AFArgs.GetCount() >= 3 ? AFArgs.GetInt(2) : 30;
 		bool bBanIp = AFArgs.GetCount() >= 4 ? AFArgs.GetBool(3) : false;
 
-		if(!AFBase::IsNumeric(AFArgs.RawArgs[3]))
+		if(sReason == "" || sReason == " ") //fix an edge case where the user inputs "" as the ban reason and completely breaks everything
+			sReason = "banned";
+		
+		if(AFArgs.GetCount() >= 3)
 		{
-			afbasebase.TellLong("Whoops! Seems like you mixed up the arguments. You tried to enter \""+AFArgs.RawArgs[3]+"\" as the ban duration.", AFArgs.User, HUD_PRINTCONSOLE);
-			afbasebase.TellLong("Usage: .admin_ban (\"steamid\") <\"reason\"> <duration in minutes, 0 for infinite> <0/1 ban ip instead of steamid>", AFArgs.User, HUD_PRINTCONSOLE);
-			return;
+			if(!AFBase::IsNumeric(AFArgs.RawArgs[3]))
+			{
+				afbasebase.TellLong("Whoops! Seems like you mixed up the arguments. You tried to enter \""+AFArgs.RawArgs[3]+"\" as the ban duration.", AFArgs.User, HUD_PRINTCONSOLE);
+				afbasebase.TellLong("Usage: .admin_ban (\"steamid\") <\"reason\"> <duration in minutes, 0 for infinite> <0/1 ban ip instead of steamid>", AFArgs.User, HUD_PRINTCONSOLE);
+				return;
+			}
 		}
 
 		if(iMinutes < 0)
@@ -619,7 +687,7 @@ namespace AFBaseBase
 				if(sHold != "")
 				{
 					string sId = AFBase::FormatSafe(AFBase::GetFixedSteamID(pTarget));
-					AFBase::AFBaseUser afbUser = AFBase::GetUser(pTarget);
+					AFBase::AFBaseUser@ afbUser = AFBase::GetUser(pTarget);
 					if(afbUser is null)
 					{
 						afbasebase.Tell("Can't ban: null player?", AFArgs.User, HUD_PRINTCONSOLE);
@@ -1183,24 +1251,18 @@ namespace AFBaseBase
 
 	void kick(AFBaseArguments@ AFArgs)
 	{
-		AFBase::BaseTellServer("kick in");
 		array<CBasePlayer@> pTargets;
 		string sReason = AFArgs.GetCount() >= 2 ? AFArgs.GetString(1) : "kicked";
-		AFBase::BaseTellServer("getting targets");
 		if(AFBase::GetTargetPlayers(AFArgs.User, HUD_PRINTCONSOLE, AFArgs.GetString(0), TARGETS_NOALL|TARGETS_NOAIM|TARGETS_NORANDOM, pTargets))
 		{
-			AFBase::BaseTellServer("target ok");
 			CBasePlayer@ pTarget = null;
 			for(uint i = 0; i < pTargets.length(); i++)
 			{
-				AFBase::BaseTellServer("loopin target");
 				@pTarget = pTargets[i];
 				afbasebase.TellAll(AFArgs.FixedNick+" kicked player "+pTarget.pev.netname+" (reason: "+sReason+")", HUD_PRINTTALK);
 				afbasebase.Tell("Kicked player "+pTarget.pev.netname+" with reason \""+sReason+"\"", AFArgs.User, HUD_PRINTCONSOLE);
 				afbasebase.Log(AFArgs.FixedNick+" kicked player "+pTarget.pev.netname+" with reason \""+sReason+"\"");
-				AFBase::BaseTellServer("executing");
 				g_EngineFuncs.ServerCommand("kick #"+string(g_EngineFuncs.GetPlayerUserId(pTarget.edict()))+" \""+sReason+"\"\n");
-				AFBase::BaseTellServer("all done :)");
 			}
 		}
 	}

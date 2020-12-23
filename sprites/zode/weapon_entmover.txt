@@ -1,0 +1,5 @@
+4
+weapon			640 640hud1		0	0	170	45
+weapon_s		640 640hud4		0	0	170	45
+crosshair		640	crosshairs	24	0	24	24
+autoaim			640	crosshairs	0	72	24	24
